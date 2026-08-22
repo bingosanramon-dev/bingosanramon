@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mi Cartón · Bingo Musical</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --noche:#14092B;
+  --noche2:#2A0F4D;
+  --ambar:#FFB930;
+  --rosa:#FF4D9D;
+  --ok:#3DDC84;
+  --mal:#FF5252;
+  --crema:#FFF7E8;
+  --panel:#231245;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Nunito',system-ui,sans-serif;
+  background:radial-gradient(circle at 50% 10%, var(--noche2) 0%, var(--noche) 70%);
+  color:var(--crema);
+  min-height:100vh;
+  padding-bottom:30px;
+}
+h1,.display{font-family:'Bungee',cursive}
+.hidden{display:none!important}
+
+header{text-align:center;padding:16px 10px 6px}
+header h1{
+  font-size:clamp(1.2rem,5vw,1.7rem);letter-spacing:1px;color:var(--ambar);
+  text-shadow:0 0 16px rgba(255,185,48,.4);
+}
+header .sub{font-weight:800;opacity:.7;font-size:.75rem;letter-spacing:2px;text-transform:uppercase}
+
+.wrap{max-width:520px;margin:0 auto;padding:0 14px}
+
+/* ---------- PANTALLAS DE ENTRADA ---------- */
+.panel{
+  background:var(--panel);border-radius:20px;padding:26px 22px;
+  border:2px solid rgba(255,185,48,.3);box-shadow:0 0 30px rgba(0,0,0,.5);
+  text-align:center;margin-top:20px;
+}
+.panel h2{font-family:'Bungee',cursive;color:var(--rosa);font-size:1.3rem;margin-bottom:10px}
+.panel p{font-weight:600;font-size:.9rem;opacity:.85;margin-bottom:16px;line-height:1.5}
+input[type=text]{
+  width:100%;padding:14px;border-radius:12px;border:2px solid rgba(255,185,48,.4);
+  background:#1a0d38;color:var(--crema);font-family:'Nunito',sans-serif;
+  font-weight:800;font-size:1rem;text-align:center;letter-spacing:2px;margin-bottom:12px;
+}
+input[type=text]::placeholder{color:rgba(255,247,232,.4);letter-spacing:normal;font-weight:600}
+.btn{
+  font-family:'Bungee',cursive;font-size:.95rem;border:none;border-radius:14px;
+  padding:14px 22px;cursor:pointer;color:#2b1500;
+  background:linear-gradient(180deg,#ffd66e,var(--ambar));
+  box-shadow:0 5px 0 #b57608,0 8px 18px rgba(0,0,0,.4);
+  transition:transform .08s,box-shadow .08s;letter-spacing:1px;width:100%;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #b57608}
+.btn:disabled{filter:grayscale(.8) brightness(.7);cursor:not-allowed}
+.btn.rosa{background:linear-gradient(180deg,#ff8ec2,var(--rosa));box-shadow:0 5px 0 #a10f56;color:#3d0021}
+.btn.rosa:active{box-shadow:0 1px 0 #a10f56}
+.btn.verde{background:linear-gradient(180deg,#8af2bb,var(--ok));box-shadow:0 5px 0 #148b4c;color:#003318}
+.btn.mini{padding:10px 16px;font-size:.75rem}
+.errMsg{color:var(--mal);font-weight:800;font-size:.85rem;margin-top:10px;min-height:1.2em}
+
+/* ---------- NOW PLAYING ---------- */
+#nowPlaying{
+  margin:14px 0;padding:12px 16px;border-radius:16px;
+  background:rgba(255,255,255,.05);border:2px solid rgba(255,185,48,.3);
+  text-align:center;
+}
+#nowPlaying .lbl{font-size:.7rem;letter-spacing:2px;opacity:.65;text-transform:uppercase;font-weight:800}
+#npNumber{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:52px;height:52px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#ffe9b0,var(--ambar));
+  color:#3a2000;font-family:'Bungee',cursive;font-size:1.4rem;margin:6px 0;
+  box-shadow:0 0 14px rgba(255,185,48,.6);
+}
+#npSong{font-weight:800;font-size:.95rem;margin-top:4px}
+
+/* ---------- CARTÓN ---------- */
+#cardWrap{margin-top:16px}
+#cardWrap h3{
+  text-align:center;font-family:'Bungee',cursive;font-size:1rem;
+  color:var(--ambar);margin-bottom:10px;letter-spacing:1px;
+}
+
+/* interruptor Cartón / Lista */
+#viewSwitch{
+  display:flex;gap:6px;background:rgba(255,255,255,.05);
+  padding:4px;border-radius:12px;margin-bottom:10px;
+}
+#viewSwitch button{
+  flex:1;border:none;border-radius:9px;padding:9px 6px;
+  font-family:'Nunito',sans-serif;font-weight:800;font-size:.78rem;
+  background:transparent;color:var(--crema);opacity:.6;cursor:pointer;
+}
+#viewSwitch button.active{background:var(--ambar);color:#2b1500;opacity:1}
+
+#card{
+  display:grid;grid-template-columns:repeat(9,1fr);
+  gap:4px;background:var(--panel);padding:8px;border-radius:14px;
+  border:2px solid rgba(255,185,48,.3);
+}
+.cardCell{
+  aspect-ratio:.72;border-radius:8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.03);
+  padding:2px 1px;text-align:center;overflow:hidden;
+}
+.cardCell.filled{
+  background:#1a0d38;border:1px solid rgba(255,255,255,.1);
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.cardCell .num{font-family:'Bungee',cursive;font-size:clamp(.75rem,3.4vw,1.05rem);color:var(--crema)}
+.cardCell .song{
+  font-size:clamp(.46rem,2vw,.62rem);font-weight:700;line-height:1.15;
+  opacity:.8;margin-top:1px;max-height:2.6em;overflow:hidden;
+}
+.cardCell.marked{
+  background:radial-gradient(circle at 35% 30%,#ffe9b0,var(--ambar) 70%);
+  box-shadow:0 0 10px rgba(255,185,48,.7);
+}
+.cardCell.marked .num{color:#3a2000}
+.cardCell.marked .song{color:#3a2000;opacity:.9}
+.cardCell.last{animation:pulse 1s infinite}
+@keyframes pulse{
+  0%,100%{box-shadow:0 0 10px rgba(255,185,48,.7)}
+  50%{box-shadow:0 0 22px rgba(255,185,48,1),0 0 32px rgba(255,77,157,.6)}
+}
+
+/* ---------- VISTA EN LISTA (canciones más legibles) ---------- */
+#songList{
+  display:flex;flex-direction:column;gap:6px;
+  background:var(--panel);padding:8px;border-radius:14px;
+  border:2px solid rgba(255,185,48,.3);
+}
+.listRow{
+  display:flex;align-items:center;gap:12px;
+  background:#1a0d38;border-radius:10px;padding:10px 12px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  border:1px solid rgba(255,255,255,.1);
+}
+.listRow .lnum{
+  font-family:'Bungee',cursive;font-size:1rem;color:var(--ambar);
+  min-width:34px;text-align:center;flex-shrink:0;
+}
+.listRow .lsong{font-size:.88rem;font-weight:700;line-height:1.3;text-align:left}
+.listRow.marked{background:radial-gradient(circle at 15% 30%,#ffe9b0,var(--ambar) 85%)}
+.listRow.marked .lnum,.listRow.marked .lsong{color:#3a2000}
+.listRow.last{animation:pulse 1s infinite}
+
+/* ---------- CONTROLES JUGADOR ---------- */
+#playerControls{display:flex;gap:10px;margin-top:16px}
+#playerControls .btn{flex:1}
+
+/* ---------- AVISO NO BLOQUEANTE (línea/bingo en revisión) ---------- */
+#announceBanner{
+  position:fixed;top:0;left:0;right:0;z-index:80;
+  padding:14px 16px;text-align:center;
+  background:var(--panel);border-bottom:3px solid var(--ambar);
+  box-shadow:0 6px 20px rgba(0,0,0,.5);
+  transform:translateY(-115%);transition:transform .35s cubic-bezier(.2,.8,.3,1);
+}
+#announceBanner.show{transform:translateY(0)}
+#announceBanner.checking{border-bottom-color:var(--rosa)}
+#announceBanner.exito{border-bottom-color:var(--ok)}
+#announceBanner.fallo{border-bottom-color:var(--mal)}
+#announceBanner h2{font-family:'Bungee',cursive;font-size:1rem;margin-bottom:2px}
+#announceBanner.checking h2{color:var(--rosa)}
+#announceBanner.exito h2{color:var(--ok)}
+#announceBanner.fallo h2{color:var(--mal)}
+#announceBanner p{font-size:.8rem;font-weight:700;opacity:.9}
+
+.conf{position:fixed;top:-20px;width:12px;height:18px;z-index:60;pointer-events:none}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎵 BINGO MUSICAL 🎵</h1>
+  <div class="sub">Cartón del jugador</div>
+</header>
+
+<div class="wrap">
+
+  <!-- PASO 1: sin configuración válida -->
+  <section id="noConfig" class="panel hidden">
+    <h2>😕 Enlace incompleto</h2>
+    <p>Este enlace no trae la configuración de la sala. Pide al anfitrión que te pase el QR o el enlace que genera el juego («Ver QR para jugadores»).</p>
+  </section>
+
+  <!-- PASO 2: unirse -->
+  <section id="joinPanel" class="panel hidden">
+    <h2>🎟️ Unirme a la partida</h2>
+    <p>Escribe tu nombre para que el anfitrión sepa quién canta línea o bingo.</p>
+    <input type="text" id="roomInput" placeholder="CÓDIGO DE SALA" maxlength="6" style="letter-spacing:4px">
+    <input type="text" id="nameInput" placeholder="Tu nombre" style="letter-spacing:normal">
+    <button class="btn rosa" id="joinBtn">🎲 Ver mi cartón</button>
+    <div class="errMsg" id="joinErr"></div>
+  </section>
+
+  <!-- PASO 3: cartón en juego -->
+  <section id="playArea" class="hidden">
+    <div id="nowPlaying">
+      <div class="lbl">Sonando ahora</div>
+      <div id="npNumber">—</div>
+      <div id="npSong">Esperando a que el anfitrión empiece…</div>
+    </div>
+
+    <div id="cardWrap">
+      <h3>🎫 Tu cartón, <span id="playerNameLbl"></span></h3>
+      <div id="viewSwitch">
+        <button id="viewCardBtn" class="active">🎟️ Cartón</button>
+        <button id="viewListBtn">📋 Lista (canciones grandes)</button>
+      </div>
+      <div id="card"></div>
+      <div id="songList" class="hidden"></div>
+    </div>
+
+    <div id="playerControls">
+      <button class="btn rosa" id="claimLineaBtn">📣 ¡Línea!</button>
+      <button class="btn" id="claimBingoBtn" style="background:linear-gradient(180deg,#8af2bb,var(--ok));box-shadow:0 5px 0 #148b4c;color:#003318">🏆 ¡Bingo!</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- AVISO EN VIVO (no bloquea la vista del cartón) -->
+<div id="announceBanner">
+  <h2 id="announceTitle">📣 ¡Comprobando!</h2>
+  <p id="announceText"></p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let fbApp=null, fbDb=null, roomRef=null, roomCode=null, playerId=null, playerName='';
+let mySet = new Set();      // números de mi cartón
+let calledSet = new Set();  // números ya cantados en la sala
+let cardGrid = null;
+let lastAnnounceStatus = null;
+let claimedLinea=false, claimedBingo=false;
+
+/* ================= LEER PARÁMETROS DEL ENLACE ================= */
+function getParams(){
+  const p = new URLSearchParams(location.search);
+  return { room: p.get('room'), cfg: p.get('cfg') };
+}
+function decodeCfg(cfgParam){
+  try{
+    const json = decodeURIComponent(escape(atob(decodeURIComponent(cfgParam))));
+    return JSON.parse(json);
+  }catch(e){ return null; }
+}
+
+function uuid(){
+  return 'p-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+}
+
+(function boot(){
+  const {room, cfg} = getParams();
+  const parsedCfg = cfg ? decodeCfg(cfg) : null;
+  if(!parsedCfg){
+    $('noConfig').classList.remove('hidden');
+    return;
+  }
+  try{
+    fbApp = firebase.initializeApp(parsedCfg, 'bingoPlayer_' + Date.now());
+    fbDb = fbApp.database();
+  }catch(e){
+    $('noConfig').classList.remove('hidden');
+    $('noConfig').querySelector('p').textContent = 'No se pudo conectar con la sala: ' + e.message;
+    return;
+  }
+  $('joinPanel').classList.remove('hidden');
+  if(room) $('roomInput').value = room.toUpperCase();
+
+  playerId = localStorage.getItem('bingoPlayerId') || uuid();
+  localStorage.setItem('bingoPlayerId', playerId);
+  const savedName = localStorage.getItem('bingoPlayerName');
+  if(savedName) $('nameInput').value = savedName;
+})();
+
+$('joinBtn').addEventListener('click', joinRoom);
+$('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') joinRoom(); });
+$('roomInput').addEventListener('keydown', e=>{ if(e.key==='Enter') joinRoom(); });
+
+function joinRoom(){
+  const code = $('roomInput').value.trim().toUpperCase();
+  const name = $('nameInput').value.trim() || 'Jugador';
+  $('joinErr').textContent = '';
+  if(!code){ $('joinErr').textContent = 'Escribe el código de sala.'; return; }
+  $('joinBtn').disabled = true;
+  $('joinBtn').textContent = 'Conectando…';
+
+  const ref = fbDb.ref('rooms/' + code);
+  ref.get().then(snap => {
+    if(!snap.exists()){
+      $('joinErr').textContent = 'No existe ninguna sala con ese código. Comprueba que el anfitrión la haya creado.';
+      $('joinBtn').disabled = false; $('joinBtn').textContent = '🎲 Ver mi cartón';
+      return;
+    }
+    roomCode = code;
+    roomRef = ref;
+    playerName = name;
+    localStorage.setItem('bingoPlayerName', name);
+    startPlaying(snap.val());
+  }).catch(err => {
+    $('joinErr').textContent = 'Error de conexión: ' + err.message;
+    $('joinBtn').disabled = false; $('joinBtn').textContent = '🎲 Ver mi cartón';
+  });
+}
+
+/* ================= GENERAR CARTÓN ESPAÑOL 3x9 (15 números) ================= */
+function generateCard(){
+  const ranges = [[1,9],[10,19],[20,29],[30,39],[40,49],[50,59],[60,69],[70,79],[80,90]];
+  for(let attempt=0; attempt<400; attempt++){
+    const counts = Array(9).fill(1);
+    let rem = 6;
+    while(rem>0){
+      const i = Math.floor(Math.random()*9);
+      if(counts[i]<3){ counts[i]++; rem--; }
+    }
+    const order = [...Array(9).keys()].sort(()=>Math.random()-0.5);
+    const rowsLeft = [5,5,5];
+    const assign = Array(9).fill(null);
+    let ok = true;
+    for(const c of order){
+      const need = counts[c];
+      const avail = [0,1,2].filter(r=>rowsLeft[r]>0);
+      if(avail.length < need){ ok=false; break; }
+      const shuffled = avail.sort(()=>Math.random()-0.5);
+      const chosen = shuffled.slice(0,need).sort((a,b)=>a-b);
+      chosen.forEach(r=>rowsLeft[r]--);
+      assign[c] = chosen;
+    }
+    if(!ok || rowsLeft.some(x=>x!==0)) continue;
+    const grid = [Array(9).fill(null),Array(9).fill(null),Array(9).fill(null)];
+    for(let c=0;c<9;c++){
+      const [lo,hi] = ranges[c];
+      const pool = []; for(let n=lo;n<=hi;n++) pool.push(n);
+      for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+      const chosenNums = pool.slice(0,counts[c]).sort((a,b)=>a-b);
+      assign[c].forEach((r,idx)=>{ grid[r][c] = chosenNums[idx]; });
+    }
+    return grid;
+  }
+  return null;
+}
+
+function loadOrCreateCard(songsMap){
+  const key = 'bingoCard_' + roomCode + '_' + playerId;
+  const stored = localStorage.getItem(key);
+  if(stored){
+    try{ return JSON.parse(stored); }catch(e){}
+  }
+  const grid = generateCard();
+  localStorage.setItem(key, JSON.stringify(grid));
+  return grid;
+}
+
+function loadMarkedSet(){
+  try{
+    const raw = localStorage.getItem('bingoMarked_' + roomCode + '_' + playerId);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  }catch(e){ return new Set(); }
+}
+function saveMarkedSet(set){
+  localStorage.setItem('bingoMarked_' + roomCode + '_' + playerId, JSON.stringify([...set]));
+}
+
+function renderCard(grid, songsMap){
+  const box = $('card');
+  const listBox = $('songList');
+  box.innerHTML = '';
+  listBox.innerHTML = '';
+  mySet = new Set();
+  const marked = loadMarkedSet();
+
+  // recopilamos las celdas con número, en orden de lectura, para la vista en lista
+  const numberedCells = [];
+
+  for(let r=0;r<3;r++){
+    for(let c=0;c<9;c++){
+      const n = grid[r][c];
+      const cell = document.createElement('div');
+      cell.className = 'cardCell' + (n!==null ? ' filled' : '');
+      if(n!==null){
+        mySet.add(n);
+        cell.id = 'pc' + n;
+        const title = songsMap && songsMap[n] ? songsMap[n] : '';
+        cell.innerHTML = `<div class="num">${n}</div><div class="song">${title}</div>`;
+        if(marked.has(n)) cell.classList.add('marked');
+        numberedCells.push({ n, title });
+      }
+      box.appendChild(cell);
+    }
+  }
+
+  // vista en lista: mismos números, ordenados, con el nombre completo bien legible
+  numberedCells.sort((a,b) => a.n - b.n).forEach(({n, title}) => {
+    const row = document.createElement('div');
+    row.className = 'listRow';
+    row.id = 'lr' + n;
+    if(marked.has(n)) row.classList.add('marked');
+    row.innerHTML = `<div class="lnum">${n}</div><div class="lsong">${title}</div>`;
+    listBox.appendChild(row);
+  });
+
+  // un único manejador de "tocar para marcar" que sincroniza cartón + lista
+  function toggleMark(n){
+    const cur = loadMarkedSet();
+    const nowMarked = !cur.has(n);
+    if(nowMarked) cur.add(n); else cur.delete(n);
+    saveMarkedSet(cur);
+    const gridCell = $('pc'+n), listRow = $('lr'+n);
+    if(gridCell) gridCell.classList.toggle('marked', nowMarked);
+    if(listRow) listRow.classList.toggle('marked', nowMarked);
+  }
+  document.querySelectorAll('.cardCell.filled').forEach(cell=>{
+    cell.addEventListener('click', () => toggleMark(Number(cell.id.replace('pc',''))));
+  });
+  document.querySelectorAll('.listRow').forEach(row=>{
+    row.addEventListener('click', () => toggleMark(Number(row.id.replace('lr',''))));
+  });
+}
+
+$('viewCardBtn').addEventListener('click', () => {
+  $('viewCardBtn').classList.add('active');
+  $('viewListBtn').classList.remove('active');
+  $('card').classList.remove('hidden');
+  $('songList').classList.add('hidden');
+});
+$('viewListBtn').addEventListener('click', () => {
+  $('viewListBtn').classList.add('active');
+  $('viewCardBtn').classList.remove('active');
+  $('songList').classList.remove('hidden');
+  $('card').classList.add('hidden');
+});
+
+/* ================= EMPEZAR A ESCUCHAR LA SALA ================= */
+function startPlaying(roomData){
+  $('joinPanel').classList.add('hidden');
+  $('playArea').classList.remove('hidden');
+  $('playerNameLbl').textContent = playerName;
+
+  const songsMap = roomData.songs || {};
+  cardGrid = loadOrCreateCard(songsMap);
+  renderCard(cardGrid, songsMap);
+
+  // presencia: aparece en el contador del anfitrión y desaparece si se cierra la pestaña
+  const meRef = roomRef.child('players/' + playerId);
+  meRef.set({ name: playerName, ts: Date.now() });
+  meRef.onDisconnect().remove();
+
+  roomRef.child('songs').on('value', snap => {
+    const map = snap.val() || {};
+    document.querySelectorAll('.cardCell.filled').forEach(cell=>{
+      const n = cell.id.replace('pc','');
+      const el = cell.querySelector('.song');
+      if(el && map[n]) el.textContent = map[n];
+    });
+    document.querySelectorAll('.listRow').forEach(row=>{
+      const n = row.id.replace('lr','');
+      const el = row.querySelector('.lsong');
+      if(el && map[n]) el.textContent = map[n];
+    });
+  });
+
+  roomRef.child('calledNumbers').on('value', snap => {
+    const data = snap.val() || {};
+    calledSet = new Set(Object.keys(data).map(Number));
+    // El marcado es manual: el jugador toca su cartón. Aquí solo guardamos
+    // qué números han sonado por si se necesita en el futuro (no se pinta nada).
+  });
+
+  roomRef.child('current').on('value', snap => {
+    const n = snap.val();
+    document.querySelectorAll('.cardCell.last, .listRow.last').forEach(c=>c.classList.remove('last'));
+    if(n===null || n===undefined) return;
+    $('npNumber').textContent = n;
+    const el = $('pc'+n);
+    if(el){ el.classList.add('last'); }
+    const row = $('lr'+n);
+    if(row){ row.classList.add('last'); }
+  });
+
+  roomRef.child('history').on('value', snap => {
+    // el título de la canción actual lo tomamos del propio cartón/canciones de la sala
+  });
+
+  roomRef.on('value', snap => {
+    const d = snap.val();
+    if(!d) return;
+    const cur = d.current;
+    const songsNow = d.songs || {};
+    if(cur !== null && cur !== undefined){
+      $('npNumber').textContent = cur;
+      $('npSong').textContent = songsNow[cur] ? '🎵 ' + songsNow[cur] : '';
+    }
+    handleAnnouncement(d.announcement);
+    if(d.winner){
+      $('claimLineaBtn').disabled = true;
+      $('claimBingoBtn').disabled = true;
+    }
+  });
+}
+
+/* ================= ANUNCIOS EN VIVO (línea / bingo cantados) ================= */
+function handleAnnouncement(a){
+  const banner = $('announceBanner');
+  if(!a){
+    banner.classList.remove('show');
+    lastAnnounceStatus = null;
+    return;
+  }
+  const key = a.status + '|' + a.mode + '|' + a.ts;
+  if(key === lastAnnounceStatus) return;
+  lastAnnounceStatus = key;
+
+  const who = a.player ? a.player : 'Alguien';
+  const que = a.mode === 'bingo' ? 'BINGO' : 'LÍNEA';
+
+  banner.className = '';
+  if(a.status === 'checking'){
+    banner.classList.add('checking');
+    $('announceTitle').textContent = `📣 ¡${who} canta ${que}!`;
+    $('announceText').textContent = 'El anfitrión está comprobando el cartón…';
+  } else if(a.status === 'ok'){
+    banner.classList.add('exito');
+    $('announceTitle').textContent = a.mode==='bingo' ? '🏆 ¡BINGO CORRECTO!' : '🎉 ¡LÍNEA CORRECTA!';
+    $('announceText').textContent = a.mode==='bingo'
+      ? '¡Enhorabuena! La partida ha terminado.'
+      : `¡Bien jugado, ${who}! La partida continúa.`;
+    launchConfetti();
+  } else if(a.status === 'bad'){
+    banner.classList.add('fallo');
+    $('announceTitle').textContent = '✘ Incorrecto';
+    $('announceText').textContent = 'No era válido. ¡El juego continúa!';
+  }
+  banner.classList.add('show');
+  const closeAfter = a.status === 'checking' ? null : 3200;
+  if(closeAfter) setTimeout(()=> banner.classList.remove('show'), closeAfter);
+}
+
+/* ================= BOTONES DE RECLAMO ================= */
+$('claimLineaBtn').addEventListener('click', () => {
+  if(!roomRef || claimedLinea) return;
+  claimedLinea = true;
+  roomRef.child('claims').push({ name: playerName, type: 'linea', ts: Date.now() });
+  $('claimLineaBtn').textContent = '📣 ¡Avisado!';
+  setTimeout(()=>{ claimedLinea=false; $('claimLineaBtn').textContent='📣 ¡Línea!'; }, 8000);
+});
+$('claimBingoBtn').addEventListener('click', () => {
+  if(!roomRef || claimedBingo) return;
+  claimedBingo = true;
+  roomRef.child('claims').push({ name: playerName, type: 'bingo', ts: Date.now() });
+  $('claimBingoBtn').textContent = '🏆 ¡Avisado!';
+  setTimeout(()=>{ claimedBingo=false; $('claimBingoBtn').textContent='🏆 ¡Bingo!'; }, 8000);
+});
+
+/* ================= CONFETI ================= */
+function launchConfetti(){
+  const colors=['#FFB930','#FF4D9D','#3DDC84','#FFF7E8','#7A5CFF'];
+  for(let i=0;i<90;i++){
+    const c=document.createElement('div');
+    c.className='conf';
+    c.style.left = Math.random()*100+'vw';
+    c.style.background = colors[Math.floor(Math.random()*colors.length)];
+    c.style.transform = `rotate(${Math.random()*360}deg)`;
+    document.body.appendChild(c);
+    const fall = 2200+Math.random()*1800;
+    c.animate([
+      {transform:`translateY(0) rotate(0deg)`,opacity:1},
+      {transform:`translateY(105vh) rotate(${480+Math.random()*300}deg)`,opacity:.8}
+    ],{duration:fall,easing:'cubic-bezier(.2,.6,.4,1)'});
+    setTimeout(()=>c.remove(), fall);
+  }
+}
+</script>
+</body>
+</html>
