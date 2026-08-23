@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bingo · Club Deportivo Social Cultural San Ramón</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verde-950:#042315;
+  --verde-900:#0B5D3B;
+  --verde-800:#0E7A4D;
+  --verde-700:#149A61;
+  --dorado:#E8B23B;
+  --dorado-claro:#F6D27E;
+  --dorado-linea:#8a6a1f;
+  --crema:#FFF8EA;
+  --panel:#0F4A32;
+  --panel-oscuro:#092E1D;
+  --ok:#3DDC84;
+  --mal:#FF5252;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Nunito',system-ui,sans-serif;
+  color:var(--crema);
+  min-height:100vh;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, var(--verde-700) 0%, transparent 60%),
+    radial-gradient(circle at 50% 100%, var(--verde-800) 0%, var(--verde-950) 75%);
+  background-attachment:fixed;
+  position:relative;
+}
+/* textura sutil de "tapete" de fieltro, como una mesa de sala de bingo */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.015) 0 2px, transparent 2px 14px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,.06) 0 2px, transparent 2px 14px);
+}
+h1,.display{font-family:'Bungee',cursive}
+
+header{text-align:center;padding:22px 10px 10px;position:relative;z-index:1}
+header .badge{
+  position:relative;display:inline-flex;align-items:center;gap:12px;
+  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25));
+  border:2px solid var(--dorado);
+  border-radius:40px;
+  padding:9px 26px 9px 9px;
+  margin-bottom:10px;
+  box-shadow:0 4px 14px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.15);
+}
+header .badge .circle{
+  width:38px;height:38px;border-radius:50%;flex-shrink:0;
+  background:radial-gradient(circle at 35% 30%, var(--dorado-claro), var(--dorado) 70%);
+  color:var(--verde-950);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bungee',cursive;font-size:1.05rem;
+  box-shadow:0 2px 6px rgba(0,0,0,.4), inset 0 1px 2px rgba(255,255,255,.6);
+}
+header .badge b{font-size:.85rem;letter-spacing:1.5px}
+header h1{
+  font-size:clamp(1.3rem,3.4vw,2rem);color:var(--dorado-claro);letter-spacing:2px;
+  text-shadow:0 2px 12px rgba(232,178,59,.35);
+}
+header .sub{
+  font-weight:800;opacity:.7;font-size:.75rem;letter-spacing:4px;
+  text-transform:uppercase;margin-top:4px;color:var(--crema);
+}
+
+#game{max-width:1700px;width:97%;margin:0 auto;padding:10px 14px 34px;position:relative;z-index:1}
+.layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,.75fr);gap:26px;align-items:start}
+@media(max-width:900px){.layout{grid-template-columns:1fr}#stage{order:-1}}
+
+#board{
+  background:linear-gradient(160deg, var(--panel) 0%, var(--panel-oscuro) 100%);
+  border-radius:20px;padding:18px;
+  border:2px solid rgba(232,178,59,.4);
+  box-shadow:inset 0 3px 14px rgba(0,0,0,.5), inset 0 -2px 0 rgba(255,255,255,.04), 0 10px 28px rgba(0,0,0,.35);
+  display:grid;grid-template-columns:repeat(10,1fr);gap:8px;
+  width:100%;
+}
+.cell{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:radial-gradient(circle at 32% 26%, #145536, #082416 78%);
+  border:1px solid rgba(255,255,255,.06);
+  font-weight:800;font-family:'Bungee',cursive;
+  font-size:clamp(.75rem,2.6vw,2.3rem);
+  line-height:1;letter-spacing:-0.03em;
+  padding:8%;              /* margen interno para que el número nunca toque el borde de la bola */
+  color:rgba(255,248,234,.4);
+  box-shadow:inset 0 2px 3px rgba(255,255,255,.06), inset 0 -3px 5px rgba(0,0,0,.4);
+  transition:all .3s;
+}
+.cell.on{
+  background:radial-gradient(circle at 32% 26%, #fff2cc, var(--dorado-claro) 45%, var(--dorado) 85%);
+  color:#3a2500;border-color:#fff2cf;
+  box-shadow:0 0 14px rgba(232,178,59,.75), inset 0 -3px 6px rgba(150,100,10,.35), inset 0 2px 3px rgba(255,255,255,.8);
+}
+.cell.last{animation:pulse 1s infinite;border-color:#fff}
+@keyframes pulse{0%,100%{box-shadow:0 0 10px rgba(232,178,59,.7)}50%{box-shadow:0 0 28px rgba(232,178,59,1)}}
+
+#stage{display:flex;flex-direction:column;align-items:center;gap:18px}
+
+/* "jaula" decorativa del bombo, alrededor de la bola central */
+#ballWrap{
+  position:relative;width:min(300px,75vw);aspect-ratio:1;
+  padding:22px;
+}
+#ballWrap::before{
+  content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(232,178,59,.55) 0deg 1.2deg, transparent 1.2deg 9deg);
+  -webkit-mask:radial-gradient(circle, transparent 62%, #000 63%, #000 100%);
+          mask:radial-gradient(circle, transparent 62%, #000 63%, #000 100%);
+  animation:cageSpin 26s linear infinite;
+}
+#ballWrap::after{
+  content:"";position:absolute;inset:8px;border-radius:50%;pointer-events:none;
+  border:2px solid rgba(232,178,59,.3);
+}
+@keyframes cageSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){ #ballWrap::before{animation:none} }
+
+#ball{
+  position:absolute;inset:22px;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%, #1f8f5c, var(--verde-900) 60%, #062a1c 100%);
+  border:6px solid rgba(255,255,255,.15);
+  box-shadow:0 0 70px rgba(232,178,59,.35), inset 0 -18px 40px rgba(0,0,0,.6), inset 0 14px 30px rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+#ball::after{content:"";position:absolute;top:7%;left:14%;width:32%;height:18%;background:radial-gradient(ellipse, rgba(255,255,255,.5), transparent 70%);border-radius:50%}
+#ballNumber{
+  font-family:'Bungee',cursive;font-size:clamp(3.6rem,11vw,5.6rem);
+  color:var(--crema);text-shadow:0 4px 10px rgba(0,0,0,.4);
+}
+#ballIdle{font-family:'Bungee',cursive;font-size:1rem;color:rgba(255,248,234,.6);text-align:center;padding:0 24px;line-height:1.6;letter-spacing:1px}
+#ballCount{font-weight:800;letter-spacing:2px;opacity:.85;font-size:.85rem;text-transform:uppercase;color:var(--dorado-claro)}
+
+#history{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:38px}
+#history .h{
+  width:36px;height:36px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fff2cc, var(--dorado-claro) 45%, var(--dorado) 85%);
+  color:#3a2500;font-weight:800;font-family:'Bungee',cursive;font-size:.8rem;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.5), inset 0 1px 2px rgba(255,255,255,.7);
+}
+
+#controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.btn{
+  font-family:'Bungee',cursive;font-size:1rem;border:none;border-radius:14px;
+  padding:14px 24px;cursor:pointer;color:#2b1a00;
+  background:linear-gradient(180deg,var(--dorado-claro),var(--dorado));
+  box-shadow:0 5px 0 #a97c14,0 8px 18px rgba(0,0,0,.35);
+  transition:transform .08s, box-shadow .08s, filter .15s;letter-spacing:1px;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #a97c14}
+.btn:disabled{filter:grayscale(.7) brightness(.7);cursor:not-allowed}
+.btn.verde{background:linear-gradient(180deg,#8af2bb,var(--ok));box-shadow:0 5px 0 #148b4c;color:#003318}
+.btn.verde:active{box-shadow:0 1px 0 #148b4c}
+.btn.roja{background:linear-gradient(180deg,#ff9c9c,var(--mal));box-shadow:0 5px 0 #931414;color:#3a0000}
+.btn.roja:active{box-shadow:0 1px 0 #931414}
+.btn.mini{font-size:.75rem;padding:10px 16px}
+@media (hover:hover){
+  .btn:not(:disabled):hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .btn:not(:disabled):active{transform:translateY(4px)}
+}
+
+#voiceRow{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+  background:rgba(0,0,0,.18);border:1px solid rgba(232,178,59,.3);
+  border-radius:14px;padding:12px 16px;
+}
+.toggle{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.toggle input{display:none}
+.toggle .slider{width:44px;height:24px;border-radius:12px;background:#0a3524;border:2px solid rgba(255,255,255,.25);position:relative;transition:background .2s;flex-shrink:0}
+.toggle .slider::after{content:"";position:absolute;top:1px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--crema);transition:transform .2s}
+.toggle input:checked + .slider{background:var(--ok);border-color:#8af2bb}
+.toggle input:checked + .slider::after{transform:translateX(19px)}
+.toggle .tlabel{font-weight:800;font-size:.9rem}
+#voiceSelect{font-family:'Nunito',sans-serif;font-weight:700;font-size:.85rem;background:#0a3524;color:var(--crema);border:2px solid rgba(232,178,59,.4);border-radius:10px;padding:8px 10px;max-width:220px;cursor:pointer}
+#voiceSelect:disabled{opacity:.4;cursor:not-allowed}
+
+/* Barra de comprobación línea / bingo */
+#checkBar{display:none;width:100%;background:linear-gradient(160deg, var(--panel), var(--panel-oscuro));border:3px solid var(--dorado);border-radius:16px;padding:18px 20px;text-align:center;box-shadow:0 0 26px rgba(232,178,59,.35), inset 0 2px 8px rgba(0,0,0,.3)}
+#checkBar.show{display:block}
+#checkBar h3{font-family:'Bungee',cursive;font-size:1.1rem;letter-spacing:1px;color:var(--dorado);margin-bottom:6px}
+#checkBar.exito{border-color:var(--ok);box-shadow:0 0 26px rgba(61,220,132,.35)}
+#checkBar.exito h3{color:var(--ok)}
+#checkBar.fallo{border-color:var(--mal);box-shadow:0 0 26px rgba(255,82,82,.35)}
+#checkBar.fallo h3{color:var(--mal)}
+#checkBar p{font-weight:600;font-size:.9rem;margin-bottom:12px;opacity:.9}
+#checkBar .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+/* Overlays */
+.overlay{position:fixed;inset:0;background:rgba(4,20,13,.85);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(4px)}
+.overlay.show{display:flex}
+.modal{background:linear-gradient(160deg, var(--panel), var(--panel-oscuro));border:3px solid var(--dorado);border-radius:22px;padding:34px 40px;text-align:center;max-width:480px;width:90%;box-shadow:0 0 60px rgba(232,178,59,.35)}
+.modal h2{font-family:'Bungee',cursive;font-size:clamp(1.6rem,5vw,2.4rem);color:var(--dorado);margin-bottom:8px;letter-spacing:2px}
+.modal p{font-weight:600;margin-bottom:20px;line-height:1.5}
+.modal .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.modal.big{max-width:720px;padding:48px 40px}
+.modal.big h2{font-size:clamp(2rem,6.5vw,3.6rem);color:var(--ok);text-shadow:0 0 20px rgba(61,220,132,.6);animation:cheer 1s ease-in-out infinite}
+@keyframes cheer{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@media (prefers-reduced-motion: reduce){ .modal.big h2{animation:none} }
+
+.conf{position:fixed;top:-20px;width:12px;height:18px;z-index:60;pointer-events:none}
+</style>
+</head>
+<body>
+
+<a href="../index.html" style="position:fixed;top:12px;left:12px;z-index:90;display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.35);border:2px solid rgba(232,178,59,.5);color:#FFF8EA;text-decoration:none;font-weight:800;font-size:.8rem;padding:8px 14px;border-radius:30px;backdrop-filter:blur(3px)">← Portada</a>
+
+<header>
+  <div class="badge"><div class="circle">SR</div><b style="letter-spacing:1px">CD SOCIAL CULTURAL SAN RAMÓN</b></div>
+  <h1>🎱 BINGO DEL CLUB 🎱</h1>
+  <div class="sub">Sorteo oficial de bolas</div>
+</header>
+
+<section id="game">
+  <div class="layout">
+    <div id="board"></div>
+    <div id="stage">
+      <div id="ballWrap">
+        <div id="ball">
+          <div id="ballIdle">Pulsa<br>SACAR BOLA<br>para empezar</div>
+          <div id="ballNumber" style="display:none"></div>
+        </div>
+      </div>
+      <div id="ballCount"></div>
+      <div id="controls">
+        <button class="btn" id="mainBtn">🎱 Sacar bola</button>
+        <button class="btn verde" id="lineaBtn">📣 ¡Línea!</button>
+        <button class="btn verde" id="bingoBtn">🏆 ¡Bingo!</button>
+        <button class="btn mini roja" id="resetBtn">↺ Reiniciar</button>
+      </div>
+      <div id="voiceRow">
+        <label class="toggle">
+          <input type="checkbox" id="speakToggle" checked>
+          <span class="slider"></span>
+          <span class="tlabel">🔊 Cantar bolas</span>
+        </label>
+        <select id="voiceSelect" title="Voz para cantar las bolas"></select>
+        <button class="btn mini" id="voiceTest">🔈 Probar</button>
+        <button class="btn mini" id="voiceRepeat">🔁 Repetir número</button>
+      </div>
+      <div id="checkBar">
+        <h3 id="checkTitle"></h3>
+        <p id="checkText"></p>
+        <div class="row" id="checkAsk">
+          <button class="btn verde" id="okBtn">✔ Es correcta</button>
+          <button class="btn roja" id="badBtn">✘ Es incorrecta</button>
+        </div>
+        <div class="row" id="checkResult" style="display:none">
+          <button class="btn" id="continueBtn">🎱 Siguiente bola</button>
+        </div>
+      </div>
+      <div id="history"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Reiniciar -->
+<div class="overlay" id="resetOverlay">
+  <div class="modal">
+    <h2 style="color:var(--mal);text-shadow:0 0 20px rgba(255,82,82,.6)">¿REINICIAR?</h2>
+    <p>Se borrarán todas las bolas cantadas y el sorteo empezará de cero. ¿Estás seguro?</p>
+    <div class="row">
+      <button class="btn roja" id="resetYes">Sí, reiniciar</button>
+      <button class="btn" id="resetNo">No, seguir jugando</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cartel de celebración -->
+<div class="overlay" id="celebrateOverlay">
+  <div class="modal big">
+    <h2 id="celebTitle">🎉 ¡LÍNEA CORRECTA! 🎉</h2>
+    <p id="celebText"></p>
+    <div class="row">
+      <button class="btn" id="celebBtn">🎱 Continuar sorteo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ================= ESTADO ================= */
+let bag = [];
+let drawn = [];
+let current = null;
+let phase = 'idle';   // idle | revealed
+let bingoWon = false;
+
+function buildBoard(){
+  const b = $('board'); b.innerHTML='';
+  for(let i=1;i<=90;i++){
+    const c = document.createElement('div');
+    c.className='cell'; c.id='c'+i; c.textContent=i;
+    b.appendChild(c);
+  }
+}
+
+function initGame(){
+  buildBoard();
+  bag = Array.from({length:90}, (_,i)=>i+1);
+  for(let i=bag.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [bag[i],bag[j]] = [bag[j],bag[i]];
+  }
+  drawn=[]; current=null; phase='idle'; bingoWon=false;
+  $('history').innerHTML='';
+  $('checkBar').classList.remove('show');
+  $('celebrateOverlay').classList.remove('show');
+  ['mainBtn','lineaBtn','bingoBtn'].forEach(id => $(id).disabled=false);
+  $('ballIdle').style.display='block';
+  $('ballIdle').innerHTML='Pulsa<br>SACAR BOLA<br>para empezar';
+  $('ballNumber').style.display='none';
+  document.querySelectorAll('.cell.last').forEach(c=>c.classList.remove('last'));
+  updateCount();
+  setMainBtn('🎱 Sacar bola', false);
+}
+
+function updateCount(){
+  $('ballCount').textContent = `Bolas restantes: ${bag.length} · Cantadas: ${drawn.length}`;
+}
+function setMainBtn(txt,dis){ $('mainBtn').textContent=txt; $('mainBtn').disabled=dis; }
+
+/* ================= SACAR BOLA ================= */
+$('mainBtn').addEventListener('click', drawBall);
+
+function drawBall(){
+  if(bingoWon) return;
+  if(bag.length===0){
+    $('ballIdle').style.display='block';
+    $('ballNumber').style.display='none';
+    $('ballIdle').innerHTML='🎉<br>¡NO QUEDAN<br>MÁS BOLAS!';
+    setMainBtn('Bombo vacío', true);
+    return;
+  }
+  current = bag.pop();
+  drawn.push(current);
+
+  $('ballIdle').style.display='none';
+  const bn = $('ballNumber');
+  bn.style.display='flex'; bn.style.animation='none'; void bn.offsetWidth;
+  bn.style.animation='pop .45s cubic-bezier(.2,1.6,.4,1)';
+  bn.textContent = current;
+
+  document.querySelectorAll('.cell.last').forEach(c=>c.classList.remove('last'));
+  const cell = $('c'+current);
+  cell.classList.add('on','last');
+
+  const h=document.createElement('div'); h.className='h'; h.textContent=current;
+  $('history').prepend(h);
+  while($('history').children.length>12) $('history').lastChild.remove();
+
+  updateCount();
+  phase='revealed';
+  setMainBtn(bag.length? '🎱 Sacar siguiente bola':'Bombo vacío', bag.length===0);
+
+  speakNumber(current);
+}
+
+/* Necesario para el keyframe "pop" en línea (definido igual que en el musical) */
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `@keyframes pop{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+#ballNumber{display:flex;align-items:center;justify-content:center;width:100%;height:100%}`;
+document.head.appendChild(styleSheet);
+
+/* ================= CANTAR BOLAS (síntesis de voz) ================= */
+let voices = [];
+let chosenVoiceKey = null; // "nombre|idioma" de la voz que ha elegido la persona a mano
+
+function voiceKey(v){ return v.name + '|' + v.lang; }
+
+function loadVoices(){
+  voices = speechSynthesis.getVoices();
+  voices.sort((a,b)=>{
+    const ae=a.lang.toLowerCase().startsWith('es')?0:1;
+    const be=b.lang.toLowerCase().startsWith('es')?0:1;
+    return ae-be || a.name.localeCompare(b.name);
+  });
+  const sel=$('voiceSelect'); sel.innerHTML='';
+  if(voices.length===0){ sel.innerHTML='<option>Sin voces disponibles</option>'; sel.disabled=true; return; }
+  sel.disabled=false;
+  voices.forEach((v,i)=>{
+    const o=document.createElement('option'); o.value=i;
+    o.textContent = `${v.lang.startsWith('es')?'🇪🇸 ':''}${v.name} (${v.lang})`;
+    sel.appendChild(o);
+  });
+
+  // El navegador puede recargar la lista de voces varias veces durante la partida
+  // (por ejemplo, al cargar voces de red). Si la persona ya había elegido una voz,
+  // la respetamos y la volvemos a localizar en la lista nueva en vez de resetearla.
+  if(chosenVoiceKey){
+    const idx = voices.findIndex(v => voiceKey(v) === chosenVoiceKey);
+    if(idx>=0){ sel.value = idx; return; }
+  }
+  const es = voices.findIndex(v=>v.lang.toLowerCase().startsWith('es'));
+  const defaultIdx = es>=0 ? es : 0;
+  sel.value = defaultIdx;
+  chosenVoiceKey = voiceKey(voices[defaultIdx]);
+}
+loadVoices();
+if(speechSynthesis.onvoiceschanged!==undefined) speechSynthesis.onvoiceschanged = loadVoices;
+
+$('voiceSelect').addEventListener('change', () => {
+  const v = voices[parseInt($('voiceSelect').value,10)];
+  if(v) chosenVoiceKey = voiceKey(v); // recordamos la elección manual para futuras recargas
+});
+
+function speakNumber(n, esPrueba){
+  if(!esPrueba && !$('speakToggle').checked) return;
+  if(!('speechSynthesis' in window) || voices.length===0) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(esPrueba ? `Bola número ${n}. Así sonará cada bola.` : String(n));
+  const v = voices[parseInt($('voiceSelect').value,10)];
+  if(v){ u.voice=v; u.lang=v.lang; }
+  u.rate=0.9; u.pitch=1; u.volume=1;
+  speechSynthesis.speak(u);
+}
+$('voiceTest').addEventListener('click', ()=> speakNumber(Math.floor(Math.random()*90)+1, true));
+$('voiceRepeat').addEventListener('click', ()=>{
+  if(drawn.length===0 || voices.length===0) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(`Repito: bola ${current}. ${current}.`);
+  const v = voices[parseInt($('voiceSelect').value,10)];
+  if(v){ u.voice=v; u.lang=v.lang; }
+  u.rate=0.85;
+  speechSynthesis.speak(u);
+});
+
+/* ================= LÍNEA Y BINGO ================= */
+let checkMode = null;
+function setGameButtons(dis){ ['mainBtn','lineaBtn','bingoBtn'].forEach(id=>$(id).disabled=dis); }
+
+function openCheck(mode){
+  if(bingoWon || drawn.length===0 || $('checkBar').classList.contains('show')) return;
+  checkMode = mode;
+  setGameButtons(true);
+  const bar=$('checkBar'); bar.className=''; bar.classList.add('show');
+  $('checkTitle').textContent = mode==='linea' ? '📣 ¡LÍNEA CANTADA!' : '🏆 ¡BINGO CANTADO!';
+  $('checkText').textContent = 'Sorteo en pausa. Comprobad el cartón en el panel… ¿es correcta?';
+  $('checkAsk').style.display='flex';
+  $('checkResult').style.display='none';
+}
+$('lineaBtn').addEventListener('click', ()=>openCheck('linea'));
+$('bingoBtn').addEventListener('click', ()=>openCheck('bingo'));
+
+$('okBtn').addEventListener('click', ()=>{
+  $('checkBar').classList.remove('show');
+  launchConfetti(); setTimeout(launchConfetti,700);
+  if(checkMode==='bingo'){
+    bingoWon = true;
+    $('celebTitle').textContent='🏆 ¡BINGO! 🏆';
+    $('celebText').textContent='¡Enhorabuena al ganador o ganadora! El sorteo ha terminado.';
+    $('celebBtn').textContent='↺ Nuevo sorteo';
+  } else {
+    $('celebTitle').textContent='🎉 ¡LÍNEA CORRECTA! 🎉';
+    $('celebText').textContent='¡Enhorabuena! El sorteo continúa.';
+    $('celebBtn').textContent='🎱 Continuar sorteo';
+  }
+  $('celebrateOverlay').classList.add('show');
+});
+
+$('celebBtn').addEventListener('click', ()=>{
+  $('celebrateOverlay').classList.remove('show');
+  if(bingoWon){ initGame(); return; }
+  setGameButtons(false);
+});
+
+$('badBtn').addEventListener('click', ()=>{
+  const que = checkMode==='linea' ? 'línea' : 'bingo';
+  const bar=$('checkBar'); bar.className='show fallo';
+  $('checkTitle').textContent='✘ ¡INCORRECTO!';
+  $('checkText').textContent=`Ese ${que} no era válido. El sorteo continúa.`;
+  $('checkAsk').style.display='none';
+  $('checkResult').style.display='flex';
+});
+$('continueBtn').addEventListener('click', ()=>{
+  $('checkBar').classList.remove('show');
+  setGameButtons(false);
+});
+
+/* ================= REINICIAR ================= */
+$('resetBtn').addEventListener('click', ()=> $('resetOverlay').classList.add('show'));
+$('resetNo').addEventListener('click', ()=> $('resetOverlay').classList.remove('show'));
+$('resetYes').addEventListener('click', ()=>{ $('resetOverlay').classList.remove('show'); initGame(); });
+
+/* ================= CONFETI ================= */
+function launchConfetti(){
+  const colors=['#E8B23B','#3DDC84','#FFF8EA','#0E7A4D','#F6D27E'];
+  for(let i=0;i<140;i++){
+    const c=document.createElement('div'); c.className='conf';
+    c.style.left = Math.random()*100+'vw';
+    c.style.background = colors[Math.floor(Math.random()*colors.length)];
+    c.style.transform = `rotate(${Math.random()*360}deg)`;
+    document.body.appendChild(c);
+    const fall = 2500+Math.random()*2000;
+    c.animate([
+      {transform:'translateY(0) rotate(0deg)',opacity:1},
+      {transform:`translateY(105vh) rotate(${540+Math.random()*360}deg)`,opacity:.8}
+    ],{duration:fall,easing:'cubic-bezier(.2,.6,.4,1)'});
+    setTimeout(()=>c.remove(), fall);
+  }
+}
+
+initGame();
+</script>
+</body>
+</html>
