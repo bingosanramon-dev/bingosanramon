@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bingo · Elige tu partida</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fondo:#0A0714;
+  --musical-a:#14092B; --musical-b:#FF4D9D; --musical-c:#FFB930;
+  --clasico-a:#0B5D3B; --clasico-b:#E8B23B; --clasico-c:#3DDC84;
+  --crema:#FFF8EA;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  min-height:100vh;
+  font-family:'Nunito',system-ui,sans-serif;
+  color:var(--crema);
+  background:
+    radial-gradient(circle at 18% 15%, rgba(255,77,157,.14), transparent 45%),
+    radial-gradient(circle at 82% 85%, rgba(61,220,132,.12), transparent 45%),
+    var(--fondo);
+  display:flex;flex-direction:column;align-items:center;
+  padding:48px 18px 40px;
+}
+h1,.display{font-family:'Bungee',cursive}
+
+header{text-align:center;margin-bottom:44px}
+header .eyebrow{
+  font-weight:900;letter-spacing:5px;font-size:.75rem;text-transform:uppercase;
+  opacity:.55;margin-bottom:12px;
+}
+header h1{
+  font-size:clamp(1.8rem,5.5vw,3.2rem);letter-spacing:1px;line-height:1.25;
+  background:linear-gradient(90deg,var(--musical-b),var(--clasico-b) 60%,var(--clasico-c));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+header p{margin-top:14px;font-weight:700;opacity:.75;font-size:.95rem}
+
+.cards{
+  display:grid;grid-template-columns:1fr 1fr;gap:28px;
+  width:100%;max-width:980px;
+}
+@media(max-width:760px){.cards{grid-template-columns:1fr}}
+
+.card{
+  position:relative;overflow:hidden;border-radius:26px;
+  padding:38px 30px 32px;text-decoration:none;color:var(--crema);
+  display:flex;flex-direction:column;gap:10px;min-height:300px;
+  border:2px solid rgba(255,255,255,.08);
+  transition:transform .25s cubic-bezier(.2,.8,.3,1), box-shadow .25s;
+}
+.card:hover{transform:translateY(-6px)}
+.card .icon{font-size:2.6rem;line-height:1;margin-bottom:6px}
+.card h2{font-size:clamp(1.3rem,3vw,1.7rem);letter-spacing:.5px}
+.card .desc{font-weight:700;font-size:.9rem;opacity:.85;line-height:1.5;max-width:34ch}
+.card .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:18px}
+.card .tag{
+  font-size:.72rem;font-weight:800;letter-spacing:.5px;
+  background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18);
+  border-radius:20px;padding:6px 12px;
+}
+.card .go{
+  position:absolute;top:26px;right:28px;font-family:'Bungee',cursive;
+  font-size:.7rem;letter-spacing:1px;opacity:0;transform:translateX(-6px);
+  transition:opacity .2s, transform .2s;
+}
+.card:hover .go{opacity:1;transform:translateX(0)}
+
+/* Bingo Musical */
+.card.musical{
+  background:
+    radial-gradient(circle at 85% -10%, rgba(255,77,157,.35), transparent 55%),
+    radial-gradient(circle at -10% 110%, rgba(255,185,48,.2), transparent 50%),
+    linear-gradient(160deg, var(--musical-a) 0%, #1f0f3d 100%);
+  box-shadow:0 18px 40px rgba(255,77,157,.12);
+}
+.card.musical h2{color:var(--musical-c)}
+.card.musical .go{color:var(--musical-c)}
+.card.musical:hover{box-shadow:0 22px 50px rgba(255,77,157,.28)}
+.card.musical .tag{color:#ffd7ea}
+
+/* Bingo Clásico */
+.card.clasico{
+  background:
+    radial-gradient(circle at 85% -10%, rgba(232,178,59,.3), transparent 55%),
+    radial-gradient(circle at -10% 110%, rgba(61,220,132,.18), transparent 50%),
+    linear-gradient(160deg, var(--clasico-a) 0%, #063020 100%);
+  box-shadow:0 18px 40px rgba(232,178,59,.12);
+}
+.card.clasico h2{color:var(--clasico-b)}
+.card.clasico .go{color:var(--clasico-b)}
+.card.clasico:hover{box-shadow:0 22px 50px rgba(232,178,59,.28)}
+.card.clasico .tag{color:#fdeecb}
+
+footer{margin-top:46px;opacity:.4;font-size:.75rem;font-weight:700;text-align:center}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Noche de bingo</div>
+  <h1>¿A qué jugamos hoy?</h1>
+  <p>Elige una sala para empezar la partida</p>
+</header>
+
+<div class="cards">
+  <a class="card musical" href="musical/index.html">
+    <span class="go">JUGAR →</span>
+    <div class="icon">🎵</div>
+    <h2>Bingo Musical</h2>
+    <div class="desc">90 canciones hacen de bolas. Suena la música, se revela el número y los jugadores marcan su cartón desde el móvil en tiempo real.</div>
+    <div class="tags">
+      <span class="tag">Sala online</span>
+      <span class="tag">Cartones para imprimir</span>
+      <span class="tag">Partidas cortas</span>
+    </div>
+  </a>
+
+  <a class="card clasico" href="clasico/index.html">
+    <span class="go">JUGAR →</span>
+    <div class="icon">🎱</div>
+    <h2>Bingo Clásico</h2>
+    <div class="desc">Bingo de toda la vida del Club Deportivo Sociocultural San Ramón: bombo de 90 bolas y mucha diversión.</div>
+    <div class="tags">
+      <span class="tag">Voz por síntesis</span>
+      <span class="tag">Panel de 90 bolas</span>
+    </div>
+  </a>
+</div>
+
+<footer>Elige una partida para empezar · vuelve aquí en cualquier momento con «← Portada»</footer>
+
+</body>
+</html>
