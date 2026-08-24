@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bingo Musical</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --noche:#14092B;
+  --noche2:#2A0F4D;
+  --ambar:#FFB930;
+  --rosa:#FF4D9D;
+  --ok:#3DDC84;
+  --mal:#FF5252;
+  --crema:#FFF7E8;
+  --panel:#231245;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Nunito',system-ui,sans-serif;
+  background:radial-gradient(circle at 50% 20%, var(--noche2) 0%, var(--noche) 70%);
+  color:var(--crema);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+h1,.display{font-family:'Bungee',cursive}
+
+/* ---------- CABECERA ---------- */
+header{
+  text-align:center;
+  padding:14px 10px 6px;
+}
+header h1{
+  font-size:clamp(1.4rem,3.5vw,2.4rem);
+  letter-spacing:2px;
+  color:var(--ambar);
+  text-shadow:0 0 18px rgba(255,185,48,.45), 0 3px 0 #7a4a00;
+}
+header .sub{font-weight:800;opacity:.7;font-size:.85rem;letter-spacing:3px;text-transform:uppercase}
+
+/* ---------- PANTALLA DE CARGA ---------- */
+#setup{
+  max-width:640px;margin:5vh auto;padding:28px;
+  background:var(--panel);border-radius:20px;
+  border:2px solid rgba(255,185,48,.35);
+  box-shadow:0 0 40px rgba(0,0,0,.5);
+  text-align:center;
+}
+#setup p{margin:10px 0;font-weight:600;line-height:1.5}
+#setup .hint{font-size:.85rem;opacity:.75}
+.btn{
+  font-family:'Bungee',cursive;
+  font-size:1rem;
+  border:none;border-radius:14px;
+  padding:14px 26px;
+  cursor:pointer;
+  color:#2b1500;
+  background:linear-gradient(180deg,#ffd66e,var(--ambar));
+  box-shadow:0 5px 0 #b57608, 0 8px 18px rgba(0,0,0,.4);
+  transition:transform .08s, box-shadow .08s;
+  letter-spacing:1px;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #b57608}
+.btn:disabled{filter:grayscale(.8) brightness(.7);cursor:not-allowed}
+.btn.rosa{background:linear-gradient(180deg,#ff8ec2,var(--rosa));box-shadow:0 5px 0 #a10f56,0 8px 18px rgba(0,0,0,.4);color:#3d0021}
+.btn.rosa:active{box-shadow:0 1px 0 #a10f56}
+.btn.verde{background:linear-gradient(180deg,#8af2bb,var(--ok));box-shadow:0 5px 0 #148b4c;color:#003318}
+.btn.verde:active{box-shadow:0 1px 0 #148b4c}
+.btn.roja{background:linear-gradient(180deg,#ff9c9c,var(--mal));box-shadow:0 5px 0 #931414;color:#3a0000}
+.btn.roja:active{box-shadow:0 1px 0 #931414}
+.btn.mini{font-size:.75rem;padding:10px 16px}
+#fileInput{display:none}
+#loadInfo{margin-top:14px;font-weight:800}
+#missing{font-size:.8rem;opacity:.7;margin-top:6px;max-height:70px;overflow:auto}
+
+/* ---------- JUEGO ---------- */
+#game{display:none;max-width:1250px;margin:0 auto;padding:8px 14px 30px}
+.layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+  gap:20px;
+  align-items:start;
+}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  #stage{order:-1}
+}
+
+/* Panel de 90 bolas */
+#board{
+  background:var(--panel);
+  border-radius:18px;
+  padding:14px;
+  border:2px solid rgba(255,185,48,.25);
+  display:grid;
+  grid-template-columns:repeat(10,1fr);
+  gap:6px;
+}
+.cell{
+  aspect-ratio:1;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:#1a0d38;
+  border:2px solid rgba(255,255,255,.08);
+  font-weight:800;
+  font-size:clamp(.65rem,1.4vw,.95rem);
+  color:rgba(255,247,232,.35);
+  transition:all .3s;
+  user-select:none;
+}
+.cell.on{
+  background:radial-gradient(circle at 35% 30%, #ffe9b0, var(--ambar) 65%);
+  color:#3a2000;
+  border-color:#ffdf9a;
+  box-shadow:0 0 12px rgba(255,185,48,.7);
+}
+.cell.last{
+  animation:pulse 1s infinite;
+  border-color:#fff;
+}
+@keyframes pulse{
+  0%,100%{box-shadow:0 0 10px rgba(255,185,48,.7)}
+  50%{box-shadow:0 0 26px rgba(255,185,48,1), 0 0 40px rgba(255,77,157,.6)}
+}
+
+/* Escenario: bola central */
+#stage{display:flex;flex-direction:column;align-items:center;gap:16px}
+#ballWrap{position:relative;width:min(340px,80vw);aspect-ratio:1}
+#ball{
+  position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%, #6b3fb0, #2A0F4D 60%, #120826 100%);
+  border:6px solid rgba(255,255,255,.15);
+  box-shadow:0 0 60px rgba(255,77,157,.35), inset 0 -18px 40px rgba(0,0,0,.6), inset 0 14px 30px rgba(255,255,255,.12);
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+#ball::after{ /* brillo */
+  content:"";position:absolute;top:7%;left:14%;width:32%;height:18%;
+  background:radial-gradient(ellipse, rgba(255,255,255,.5), transparent 70%);
+  border-radius:50%;
+  pointer-events:none;
+  z-index:5;
+}
+#ballNumber{
+  display:none;
+  width:62%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fff, #ffe9c2 60%, #e8c078);
+  color:#241000;
+  font-family:'Bungee',cursive;
+  font-size:clamp(3.4rem,10vw,5.2rem);
+  align-items:center;justify-content:center;
+  box-shadow:0 6px 20px rgba(0,0,0,.5), inset 0 -8px 16px rgba(180,120,20,.35);
+  animation:pop .45s cubic-bezier(.2,1.6,.4,1);
+}
+@keyframes pop{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+#ballVideo{
+  display:none;position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;border-radius:50%;
+}
+#ballEq{display:none;position:absolute;inset:0;width:100%;height:100%}
+#ballIdle{
+  font-family:'Bungee',cursive;
+  font-size:1rem;color:rgba(255,247,232,.55);
+  text-align:center;padding:0 30px;line-height:1.6;letter-spacing:1px;
+}
+#songCount{font-weight:800;letter-spacing:2px;opacity:.75;font-size:.85rem;text-transform:uppercase}
+#songTitle{
+  font-family:'Nunito',sans-serif;
+  font-weight:800;
+  font-size:clamp(1rem,2.3vw,1.3rem);
+  color:var(--crema);
+  text-align:center;
+  max-width:90%;
+  min-height:1.4em;
+  text-shadow:0 2px 8px rgba(0,0,0,.6);
+  animation:pop .4s cubic-bezier(.2,1.6,.4,1);
+}
+#songTitle span{
+  display:inline-block;
+  background:rgba(0,0,0,.35);
+  border:2px solid rgba(255,185,48,.4);
+  border-radius:30px;
+  padding:8px 20px;
+}
+
+/* Últimas bolas */
+#history{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:38px}
+#history .h{
+  width:36px;height:36px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #ffe9b0, var(--ambar));
+  color:#3a2000;font-weight:800;font-size:.85rem;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.5);
+}
+
+/* Controles */
+#controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+
+/* Barra de comprobación (línea / bingo) — no tapa el panel */
+#checkBar{
+  display:none;
+  width:100%;
+  background:var(--panel);
+  border:3px solid var(--rosa);
+  border-radius:16px;
+  padding:16px 18px;
+  text-align:center;
+  box-shadow:0 0 26px rgba(255,77,157,.35);
+  animation:pop .3s cubic-bezier(.2,1.6,.4,1);
+}
+#checkBar.show{display:block}
+#checkBar h3{
+  font-family:'Bungee',cursive;
+  font-size:1.15rem;letter-spacing:1px;
+  color:var(--rosa);margin-bottom:6px;
+}
+#checkBar.exito{border-color:var(--ok);box-shadow:0 0 26px rgba(61,220,132,.35)}
+#checkBar.exito h3{color:var(--ok)}
+#checkBar.fallo{border-color:var(--mal);box-shadow:0 0 26px rgba(255,82,82,.35)}
+#checkBar.fallo h3{color:var(--mal)}
+#checkBar p{font-weight:600;font-size:.9rem;margin-bottom:12px;opacity:.85}
+#checkBar .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+/* Fila "Cantar bolas": interruptor + selector de voz */
+#voiceRow{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;
+  padding:10px 14px;
+}
+.toggle{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.toggle input{display:none}
+.toggle .slider{
+  width:44px;height:24px;border-radius:12px;
+  background:#3a2a5e;border:2px solid rgba(255,255,255,.2);
+  position:relative;transition:background .2s;flex-shrink:0;
+}
+.toggle .slider::after{
+  content:"";position:absolute;top:1px;left:2px;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--crema);transition:transform .2s;
+}
+.toggle input:checked + .slider{background:var(--ok);border-color:#8af2bb}
+.toggle input:checked + .slider::after{transform:translateX(19px)}
+.toggle .tlabel{font-weight:800;font-size:.9rem}
+#voiceSelect{
+  font-family:'Nunito',sans-serif;font-weight:700;font-size:.85rem;
+  background:#1a0d38;color:var(--crema);
+  border:2px solid rgba(255,185,48,.4);border-radius:10px;
+  padding:8px 10px;max-width:230px;cursor:pointer;
+}
+#voiceSelect:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---------- OVERLAYS ---------- */
+.overlay{
+  position:fixed;inset:0;background:rgba(10,4,25,.85);
+  display:none;align-items:center;justify-content:center;
+  z-index:50;backdrop-filter:blur(4px);
+}
+.overlay.show{display:flex}
+.modal{
+  background:var(--panel);
+  border:3px solid var(--ambar);
+  border-radius:22px;
+  padding:34px 40px;
+  text-align:center;
+  max-width:480px;width:90%;
+  box-shadow:0 0 60px rgba(255,185,48,.35);
+  animation:pop .35s cubic-bezier(.2,1.6,.4,1);
+}
+.modal h2{font-family:'Bungee',cursive;font-size:clamp(1.6rem,5vw,2.4rem);color:var(--ambar);margin-bottom:8px;letter-spacing:2px}
+.modal p{font-weight:600;margin-bottom:20px;line-height:1.5}
+.modal .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.modal.linea h2{color:var(--rosa);text-shadow:0 0 20px rgba(255,77,157,.6)}
+.modal.exito h2{color:var(--ok);text-shadow:0 0 20px rgba(61,220,132,.6)}
+.modal.fallo h2{color:var(--mal);text-shadow:0 0 20px rgba(255,82,82,.6)}
+.modal.big{max-width:760px;padding:50px 46px}
+.modal.big h2{font-size:clamp(2.2rem,7vw,4rem);animation:cheer 1s ease-in-out infinite}
+@keyframes cheer{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+/* Confeti */
+.conf{position:fixed;top:-20px;width:12px;height:18px;z-index:60;pointer-events:none}
+
+/* ---------- SALA ONLINE (Firebase) ---------- */
+#onlineBox{
+  max-width:640px;margin:18px auto 0;padding:20px 22px;
+  background:rgba(255,255,255,.04);border:2px dashed rgba(255,185,48,.4);
+  border-radius:16px;text-align:center;
+}
+#onlineBox h3{font-family:'Bungee',cursive;font-size:1rem;color:var(--ambar);margin-bottom:8px;letter-spacing:1px}
+#onlineBox p{font-size:.82rem;opacity:.8;margin-bottom:10px;line-height:1.5}
+#onlineStatus{font-weight:800;font-size:.85rem;margin:8px 0;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.25)}
+#onlineStatus.ok{color:var(--ok)}
+#onlineStatus.bad{color:var(--mal)}
+#roomCodeBig{
+  font-family:'Bungee',cursive;font-size:2rem;letter-spacing:6px;
+  color:var(--rosa);text-shadow:0 0 16px rgba(255,77,157,.5);margin:6px 0;
+}
+#cfgArea{
+  width:100%;min-height:70px;padding:10px;border-radius:10px;
+  border:2px solid rgba(255,185,48,.4);background:#1a0d38;color:var(--crema);
+  font-family:monospace;font-size:.78rem;margin-bottom:10px;resize:vertical;
+}
+#playerCount{font-size:.78rem;opacity:.75;margin-top:6px}
+
+/* ---------- CARTONES PARA IMPRIMIR (offline) ---------- */
+#offlineBox{
+  max-width:640px;margin:18px auto 0;padding:20px 22px;
+  background:rgba(255,255,255,.04);border:2px dashed rgba(61,220,132,.4);
+  border-radius:16px;text-align:center;
+}
+#offlineBox h3{font-family:'Bungee',cursive;font-size:1rem;color:var(--ok);margin-bottom:8px;letter-spacing:1px}
+#offlineBox p{font-size:.82rem;opacity:.8;margin-bottom:10px;line-height:1.5}
+#offlineStatus{min-height:1.2em;font-weight:800}
+
+/* ---------- DURACIÓN DE LA PARTIDA ---------- */
+#durationBox{max-width:520px;margin:0 auto}
+#durationSwitch{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.durBtn{
+  font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;
+  border:2px solid rgba(255,185,48,.4);border-radius:12px;
+  background:transparent;color:var(--crema);padding:10px 14px;cursor:pointer;
+  opacity:.65;transition:opacity .15s,background .15s;
+}
+.durBtn.active{opacity:1;background:rgba(255,185,48,.18);border-color:var(--ambar)}
+
+/* ---------- PANEL DE PETICIONES (línea/bingo desde jugadores) ---------- */
+#claimsPanel{
+  position:fixed;top:14px;right:14px;z-index:70;
+  display:flex;flex-direction:column;gap:8px;max-width:280px;
+}
+.claimCard{
+  background:var(--panel);border:2px solid var(--rosa);border-radius:12px;
+  padding:10px 12px;box-shadow:0 6px 18px rgba(0,0,0,.5);
+  animation:pop .3s cubic-bezier(.2,1.6,.4,1);
+}
+.claimCard b{color:var(--ambar)}
+.claimCard .row{display:flex;gap:6px;margin-top:8px}
+.claimCard button{
+  flex:1;font-family:'Nunito',sans-serif;font-weight:800;font-size:.75rem;
+  border:none;border-radius:8px;padding:7px;cursor:pointer;
+}
+.claimCard .verBtn{background:var(--ambar);color:#2b1500}
+.claimCard .verBtn:disabled{opacity:.35;cursor:not-allowed}
+.claimCard .descBtn{background:transparent;color:var(--crema);border:1px solid rgba(255,255,255,.3)!important}
+.claimCard .claimWait{display:none;font-size:.68rem;opacity:.75;margin-top:4px;font-weight:700}
+.claimCard.waiting .claimWait{display:block}
+</style>
+</head>
+<body>
+
+<a href="../index.html" style="position:fixed;top:12px;left:12px;z-index:90;display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.35);border:2px solid rgba(255,185,48,.5);color:#FFF7E8;text-decoration:none;font-weight:800;font-size:.8rem;padding:8px 14px;border-radius:30px;backdrop-filter:blur(3px)">← Portada</a>
+
+<header>
+  <h1>🎵 BINGO MUSICAL 🎵</h1>
+  <div class="sub">90 bolas · 90 canciones</div>
+</header>
+
+<!-- PANTALLA DE CARGA -->
+<section id="setup">
+  <h2 class="display" style="color:var(--rosa);margin-bottom:10px">Carga tus canciones</h2>
+  <p>Selecciona tus archivos <b>MP3</b> (solo audio, se verá un ecualizador) y <b>MP4</b> (se verá el videoclip en la bola central).</p>
+  <p class="hint">💡 Truco: si el nombre del archivo empieza por un número del 1 al 90 (ej. <b>«27 - Thriller.mp3»</b>), esa canción será la bola 27. Los archivos sin número se reparten en los huecos libres por orden.</p>
+  <br>
+  <button class="btn" onclick="document.getElementById('fileInput').click()">📂 Seleccionar canciones</button>
+  <input type="file" id="fileInput" multiple accept="audio/*,video/mp4,video/*">
+  <div id="loadInfo"></div>
+  <div id="missing"></div>
+  <br>
+  <div id="durationBox">
+    <p class="hint" style="margin-bottom:8px">⏱️ Duración de la partida:</p>
+    <p class="hint" style="margin-bottom:8px;opacity:.7">En corta/exprés se juega solo con esos números: el bombo y los cartones de los jugadores se limitan igual, así todas las casillas pueden salir.</p>
+    <div id="durationSwitch">
+      <button class="durBtn active" data-balls="0">🎯 Completa (1-90)</button>
+      <button class="durBtn" data-balls="45">⚡ Corta (1-45)</button>
+      <button class="durBtn" data-balls="27">🚀 Exprés (1-27)</button>
+    </div>
+  </div>
+  <br>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <button class="btn verde" id="pdfBtn" disabled>📄 Descargar lista en PDF</button>
+    <button class="btn" id="qrBtn">📱 QR para jugadores</button>
+    <button class="btn rosa" id="startBtn" disabled>🎲 ¡Empezar a jugar!</button>
+  </div>
+  <p class="hint" style="margin-top:12px">El PDF muestra qué canción corresponde a cada bola. Súbelo a Google Drive o WhatsApp y genera un QR gigante para que los jugadores lo descarguen escaneándolo.</p>
+
+  <div id="onlineBox">
+    <h3>📶 SALA DE JUGADORES ONLINE</h3>
+    <p>Los jugadores escanean un QR y les aparece su cartón con los números y las canciones automáticamente, sin PDFs. Se marca solo en tiempo real mientras juegas. Necesitas una base de datos <b>Firebase</b> gratuita (una sola vez, 2 minutos) — mira el <b>README</b> del proyecto para los pasos.</p>
+    <textarea id="cfgArea" placeholder='Pega aquí el objeto de configuración de tu proyecto Firebase, ej: { "apiKey": "...", "databaseURL": "https://xxx.firebaseio.com", "projectId": "..." }'></textarea>
+    <button class="btn mini" id="cfgSaveBtn">💾 Guardar configuración</button>
+    <div id="onlineStatus">Sin configurar todavía</div>
+    <div id="roomBlock" style="display:none">
+      <p class="hint">Código de sala:</p>
+      <div id="roomCodeBig">----</div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn rosa mini" id="showRoomQrBtn">📱 Ver QR para jugadores</button>
+        <button class="btn mini" id="newRoomBtn">🔄 Nueva sala</button>
+      </div>
+      <div id="playerCount">👤 0 jugadores conectados</div>
+    </div>
+  </div>
+
+  <div id="offlineBox">
+    <h3>🖨️ CARTONES PARA IMPRIMIR (PARTIDA OFFLINE)</h3>
+    <p>Genera cartones de bingo al azar en PDF, listos para recortar y repartir — <b>ya incluyen el nombre de la canción dentro de cada casilla</b>, no solo el número. No hace falta internet ni móviles: los jugadores marcan su cartón en papel mientras tú cantas las canciones en esta pantalla como siempre. Usa el modo de duración que hayas elegido arriba (Completa / Corta / Exprés): cuantas menos bolas se jueguen, menos números y columnas lleva el cartón (regla de tres), así siempre es posible completarlo — y al ser más pequeño, caben más cartones por hoja A4.</p>
+    <div style="display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:10px 0">
+      <label class="hint" style="margin:0">Nº de cartones:</label>
+      <input type="number" id="numCartones" value="200" min="4" max="500" step="4"
+        style="width:90px;padding:8px;border-radius:8px;border:2px solid rgba(255,185,48,.4);background:#1a0d38;color:var(--crema);text-align:center;font-weight:800">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" id="genCartonesBtn">🎲 Generar cartones</button>
+      <button class="btn verde" id="dlCartonesPdfBtn" disabled>⬇️ Descargar PDF</button>
+    </div>
+    <div id="offlineStatus" class="hint" style="margin-top:10px"></div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px">
+      <button class="btn mini" id="saveBatchBtn" disabled>💾 Guardar copia de seguridad (.json)</button>
+      <button class="btn mini" onclick="document.getElementById('loadBatchInput').click()">📤 Cargar copia guardada</button>
+      <input type="file" id="loadBatchInput" accept="application/json" style="display:none">
+    </div>
+    <p class="hint" style="margin-top:10px">💡 Guarda la copia .json después de generar: así, si necesitas reimprimir algún cartón suelto o repetir el PDF más adelante, cargas ese archivo y descargas el PDF de nuevo con <b>exactamente los mismos cartones</b> (nadie tendrá un cartón repetido ni distinto al que ya repartiste).</p>
+  </div>
+</section>
+
+
+<div id="claimsPanel"></div>
+
+<!-- JUEGO -->
+<section id="game">
+  <div class="layout">
+    <div id="board"></div>
+    <div id="stage">
+      <div id="ballWrap">
+        <div id="ball">
+          <div id="ballIdle">Pulsa<br>SONAR CANCIÓN<br>para empezar</div>
+          <video id="ballVideo" playsinline></video>
+          <canvas id="ballEq"></canvas>
+          <div id="ballNumber"></div>
+        </div>
+      </div>
+      <div id="songCount"></div>
+      <div id="songTitle"></div>
+      <div id="controls">
+        <button class="btn" id="mainBtn">▶ Sonar canción</button>
+        <button class="btn mini" id="pauseBtn">⏸ Pausar</button>
+        <button class="btn rosa" id="lineaBtn">📣 ¡Línea!</button>
+        <button class="btn rosa" id="bingoBtn">🏆 ¡Bingo!</button>
+        <button class="btn mini verde" id="pdfBtn2">📄 PDF</button>
+        <button class="btn mini" id="qrBtn2">📱 QR</button>
+        <button class="btn mini roja" id="resetBtn">↺ Reiniciar</button>
+      </div>
+      <div id="voiceRow">
+        <label class="toggle">
+          <input type="checkbox" id="speakToggle">
+          <span class="slider"></span>
+          <span class="tlabel">🔊 Cantar bolas</span>
+        </label>
+        <select id="voiceSelect" title="Voz para cantar las bolas"></select>
+        <button class="btn mini" id="voiceTest">🔈 Probar</button>
+        <button class="btn mini" id="voiceRepeat">🔁 Repetir número</button>
+      </div>
+      <div id="checkBar">
+        <h3 id="checkTitle"></h3>
+        <p id="checkText"></p>
+        <div class="row" id="checkAsk">
+          <button class="btn verde" id="okBtn">✔ Es correcta</button>
+          <button class="btn roja" id="badBtn">✘ Es incorrecta</button>
+        </div>
+        <div class="row" id="checkResult" style="display:none">
+          <button class="btn" id="continueBtn">▶ Siguiente bola</button>
+        </div>
+      </div>
+      <div id="history"></div>
+    </div>
+  </div>
+</section>
+
+<!-- OVERLAY reiniciar -->
+<div class="overlay" id="resetOverlay">
+  <div class="modal fallo">
+    <h2>¿REINICIAR?</h2>
+    <p>Se borrarán todas las bolas cantadas y el juego empezará de cero. ¿Estás seguro?</p>
+    <div id="resetDurationBox" style="margin:4px 0 16px">
+      <p class="hint" style="margin-bottom:8px">⏱️ Duración de la nueva partida:</p>
+      <div id="resetDurationSwitch" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"></div>
+    </div>
+    <div class="row">
+      <button class="btn roja" id="resetYes">Sí, reiniciar</button>
+      <button class="btn" id="resetNo">No, seguir jugando</button>
+    </div>
+  </div>
+</div>
+
+<!-- GENERADOR DE QR para compartir la lista -->
+<div class="overlay" id="qrOverlay">
+  <div class="modal" style="max-width:560px">
+    <h2 style="font-family:'Bungee',cursive;color:var(--ambar);font-size:1.5rem;margin-bottom:10px">📱 QR PARA JUGADORES</h2>
+    <p style="font-size:.9rem">1) Sube el PDF a Google Drive, Dropbox o un chat de WhatsApp y copia su enlace compartido.<br>2) Pégalo aquí y genera el QR.<br>3) Proyéctalo: quien lo escanee descargará la lista.</p>
+    <input type="url" id="qrLink" placeholder="https://drive.google.com/…"
+      style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,185,48,.4);background:#1a0d38;color:var(--crema);font-family:'Nunito',sans-serif;font-weight:700;font-size:.9rem;margin-bottom:14px">
+    <div id="qrBox" style="display:flex;justify-content:center;margin-bottom:14px"></div>
+    <div class="row">
+      <button class="btn verde" id="qrGen">✨ Generar QR</button>
+      <button class="btn roja" id="qrClose">✖ Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR PARA UNIRSE A LA SALA DE JUGADORES -->
+<div class="overlay" id="roomQrOverlay">
+  <div class="modal" style="max-width:500px">
+    <h2 style="font-family:'Bungee',cursive;color:var(--rosa);font-size:1.4rem;margin-bottom:10px">📱 ¡ÚNETE A LA PARTIDA!</h2>
+    <p style="font-size:.9rem">Escanea este código con el móvil. Se abrirá tu cartón con los números y las canciones, y se marcará solo mientras jugamos.</p>
+    <div id="roomQrBox" style="display:flex;justify-content:center;margin:14px 0"></div>
+    <p style="font-size:.85rem;opacity:.8">Código de sala: <b id="roomQrCode" style="color:var(--ambar)">----</b></p>
+    <div class="row" style="margin-top:14px">
+      <button class="btn roja" id="roomQrClose">✖ Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CARTEL GRANDE de celebración (línea / bingo correctos) -->
+<div class="overlay" id="celebrateOverlay">
+  <div class="modal exito big">
+    <h2 id="celebTitle">🎉 ¡LÍNEA CORRECTA! 🎉</h2>
+    <p id="celebText"></p>
+    <div class="row">
+      <button class="btn" id="celebBtn">▶ Continuar partida</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ================= ESTADO ================= */
+const songs = {};        // num -> {url, isVideo, name}
+let bag = [];            // números pendientes (sin repetición)
+let maxBalls = 0;        // 0 = partida completa; si no, tope de bolas a jugar
+let drawn = [];          // números ya cantados
+let current = null;      // bola en curso
+let phase = 'idle';      // idle | playing | revealed
+let pausedForCheck = false;
+let bingoWon = false;
+
+/* ================= SALA ONLINE (Firebase) — jugadores en tiempo real ================= */
+// Configuración de tu proyecto Firebase (ya viene rellena, no hace falta pegarla a mano)
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB142yrJef_6LfEIFi3DaiMcvij4PFYECk",
+  authDomain: "bingo-musical-61e51.firebaseapp.com",
+  databaseURL: "https://bingo-musical-61e51-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "bingo-musical-61e51",
+  storageBucket: "bingo-musical-61e51.firebasestorage.app",
+  messagingSenderId: "749137475237",
+  appId: "1:749137475237:web:32dd9bb76ade5faf0e3f4c",
+  measurementId: "G-JZWRQK27XP"
+};
+let fbApp = null, fbDb = null, roomCode = null, roomRef = null;
+let claimsListenerSet = false;
+let activeClaim = null; // {id, name, type} de la petición que se está revisando
+
+function loadStoredConfig(){
+  try{ return JSON.parse(localStorage.getItem('bingoMusicalFirebaseConfig')||'null'); }
+  catch(e){ return null; }
+}
+function saveStoredConfig(cfg){ localStorage.setItem('bingoMusicalFirebaseConfig', JSON.stringify(cfg)); }
+
+function setOnlineStatus(txt, cls){
+  const el = $('onlineStatus');
+  el.textContent = txt;
+  el.className = cls || '';
+}
+
+function parseConfigInput(raw){
+  // Acepta tanto el objeto pegado tal cual, como con "const firebaseConfig = ...;" alrededor
+  const match = raw.match(/\{[\s\S]*\}/);
+  if(!match) throw new Error('No se encontró un objeto { } en el texto pegado.');
+  // eslint-disable-next-line no-new-func
+  return Function('"use strict"; return (' + match[0] + ');')();
+}
+
+function initFirebase(cfg){
+  try{
+    if(fbApp){ fbApp.delete().catch(()=>{}); }
+    fbApp = firebase.initializeApp(cfg, 'bingoApp_' + Date.now());
+    fbDb = fbApp.database();
+    setOnlineStatus('✅ Conectado a Firebase. Ya puedes crear la sala.', 'ok');
+    $('roomBlock').style.display = 'block';
+    if(!roomCode) createRoom();
+    if(!claimsListenerSet) listenClaims();
+  }catch(e){
+    console.error(e);
+    setOnlineStatus('✘ No se pudo conectar: ' + e.message, 'bad');
+  }
+}
+
+$('cfgSaveBtn').addEventListener('click', () => {
+  const raw = $('cfgArea').value.trim();
+  if(!raw){ setOnlineStatus('✘ Pega primero la configuración de tu proyecto Firebase.', 'bad'); return; }
+  try{
+    const cfg = parseConfigInput(raw);
+    saveStoredConfig(cfg);
+    initFirebase(cfg);
+  }catch(e){
+    setOnlineStatus('✘ Configuración no válida: ' + e.message, 'bad');
+  }
+});
+
+function makeRoomCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for(let i=0;i<4;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+function createRoom(){
+  if(!fbDb) return;
+  roomCode = makeRoomCode();
+  roomRef = fbDb.ref('rooms/' + roomCode);
+  $('roomCodeBig').textContent = roomCode;
+  $('roomQrCode').textContent = roomCode;
+  roomRef.set({
+    createdAt: Date.now(),
+    songs: {},
+    calledNumbers: {},
+    history: [],
+    current: null,
+    phase: 'idle',
+    announcement: null,
+    winner: false,
+    gameId: Date.now(),
+    maxNo: maxBalls>0 ? maxBalls : 90
+  }).then(pushRoomSongs);
+  roomRef.child('players').on('value', snap => {
+    const n = snap.exists() ? Object.keys(snap.val()).length : 0;
+    $('playerCount').textContent = `👤 ${n} jugador${n===1?'':'es'} conectado${n===1?'':'s'}`;
+  });
+}
+
+$('newRoomBtn').addEventListener('click', () => {
+  if(roomRef){ roomRef.child('players').off(); }
+  createRoom();
+});
+
+function pushRoomSongs(){
+  if(!roomRef) return;
+  const map = {};
+  Object.keys(songs).forEach(n => { map[n] = cleanName(songs[n].name); });
+  roomRef.child('songs').set(map);
+}
+
+function buildJoinUrl(){
+  const cfg = loadStoredConfig();
+  const base = location.href.replace(/index\.html?(\?.*)?(#.*)?$/,'').replace(/\/?$/,'/');
+  const cfgParam = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(cfg)))));
+  return base + 'jugador.html?room=' + roomCode + '&cfg=' + cfgParam;
+}
+
+function showRoomQr(){
+  if(!roomCode){ setOnlineStatus('✘ Configura Firebase primero para crear una sala.', 'bad'); return; }
+  const box = $('roomQrBox');
+  box.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'background:#fff;padding:16px;border-radius:14px';
+  box.appendChild(wrap);
+  new QRCode(wrap, {
+    text: buildJoinUrl(),
+    width: 240, height: 240,
+    colorDark:'#14092B', colorLight:'#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+  $('roomQrCode').textContent = roomCode;
+  $('roomQrOverlay').classList.add('show');
+}
+$('showRoomQrBtn').addEventListener('click', showRoomQr);
+$('roomQrClose').addEventListener('click', ()=> $('roomQrOverlay').classList.remove('show'));
+
+/* --- sincronizar el estado del juego hacia la sala --- */
+function syncDrawn(){
+  if(!roomRef) return;
+  roomRef.update({
+    ['calledNumbers/' + current]: true,
+    current: current,
+    phase: 'revealed'
+  });
+  roomRef.child('history').set(drawn);
+}
+function syncPlaying(){
+  if(!roomRef) return;
+  roomRef.update({ phase: 'playing' });
+}
+function syncReset(){
+  if(!roomRef) return;
+  roomRef.update({
+    calledNumbers: {}, history: [], current: null, phase: 'idle',
+    announcement: null, winner: false, claims: null,
+    gameId: Date.now(), maxNo: maxBalls>0 ? maxBalls : 90
+  });
+  pushRoomSongs();
+}
+function syncAnnouncement(mode, playerName){
+  if(!roomRef) return;
+  roomRef.child('announcement').set({
+    status: 'checking', mode, player: playerName || null, ts: Date.now()
+  });
+}
+function syncResult(status, mode){
+  if(!roomRef) return;
+  roomRef.child('announcement').update({ status, mode });
+  if(status==='ok' && mode==='bingo'){ roomRef.update({ winner: true }); }
+}
+
+/* --- escuchar peticiones de "¡Línea!" / "¡Bingo!" enviadas por jugadores --- */
+function listenClaims(){
+  claimsListenerSet = true;
+  // se re-vincula automáticamente al nuevo roomRef cada vez que se crea sala,
+  // así que escuchamos sobre una referencia "viva" comprobando roomRef en cada tick
+  let lastRoom = null;
+  setInterval(() => {
+    if(!roomRef || roomRef === lastRoom) return;
+    if(lastRoom) lastRoom.child('claims').off();
+    lastRoom = roomRef;
+    roomRef.child('claims').on('child_added', snap => {
+      renderClaim(snap.key, snap.val());
+    });
+    roomRef.child('claims').on('child_removed', snap => {
+      const el = document.getElementById('claim-' + snap.key);
+      if(el) el.remove();
+    });
+  }, 500);
+}
+
+function renderClaim(id, data){
+  if(document.getElementById('claim-'+id)) return;
+  const card = document.createElement('div');
+  card.className = 'claimCard';
+  card.id = 'claim-'+id;
+  const label = data.type==='bingo' ? '🏆 ¡BINGO!' : '📣 ¡Línea!';
+  card.innerHTML = `<div><b>${data.name||'Jugador'}</b> pide ${label}</div>
+    <div class="claimWait">⏳ Espera a que termines la revisión actual</div>
+    <div class="row">
+      <button class="verBtn">Revisar</button>
+      <button class="descBtn">Descartar</button>
+    </div>`;
+  card.querySelector('.verBtn').addEventListener('click', () => {
+    activeClaim = { id, name: data.name, type: data.type, playerId: data.playerId };
+    const opened = openCheck(data.type, true); // true = revisión automática
+    if(!opened){ activeClaim = null; return; } // ya hay otra revisión en curso: se queda en la lista, esperando
+    if(roomRef) roomRef.child('claims/'+id).remove();
+    card.remove();
+    autoResolveClaim(data);
+  });
+  card.querySelector('.descBtn').addEventListener('click', () => {
+    if(roomRef) roomRef.child('claims/'+id).remove();
+    card.remove();
+  });
+  $('claimsPanel').appendChild(card);
+  updateClaimButtonsAvailability();
+}
+
+/* Mientras hay una línea/bingo en revisión, el resto de peticiones esperan su turno:
+   se bloquea "Revisar" para que no se pierdan si se pulsan varias a la vez. */
+function updateClaimButtonsAvailability(){
+  const busy = $('checkBar').classList.contains('show') || bingoWon;
+  document.querySelectorAll('#claimsPanel .claimCard').forEach(card => {
+    card.querySelector('.verBtn').disabled = busy;
+    card.classList.toggle('waiting', busy);
+  });
+}
+
+/* --- arrancar con la configuración guardada, o con la de fábrica si es la primera vez --- */
+(function bootOnline(){
+  const cfg = loadStoredConfig() || DEFAULT_FIREBASE_CONFIG;
+  if(!loadStoredConfig()) saveStoredConfig(cfg);
+  $('cfgArea').value = JSON.stringify(cfg, null, 2);
+  initFirebase(cfg);
+})();
+
+/* Audio */
+let actx = null;
+let analyser = null;
+let mediaEl = null;      // <audio> o <video> actual
+let sourceNode = null;
+let eqRAF = null;
+
+/* ================= CARGA DE ARCHIVOS ================= */
+$('fileInput').addEventListener('change', e => {
+  const files = [...e.target.files];
+  // 1º: archivos con número en el nombre
+  const noNum = [];
+  files.forEach(f => {
+    const m = f.name.match(/(\d{1,2})/);
+    const n = m ? parseInt(m[1],10) : 0;
+    if(n>=1 && n<=90 && !songs[n]) assign(n,f);
+    else noNum.push(f);
+  });
+  // 2º: el resto en huecos libres por orden
+  let slot = 1;
+  noNum.forEach(f => {
+    while(slot<=90 && songs[slot]) slot++;
+    if(slot<=90) assign(slot,f);
+  });
+  updateLoadInfo();
+});
+
+function assign(n,f){
+  songs[n] = {
+    url: URL.createObjectURL(f),
+    isVideo: f.type.startsWith('video') || /\.(mp4|webm|mov)$/i.test(f.name),
+    name: f.name
+  };
+}
+
+function updateLoadInfo(){
+  const count = Object.keys(songs).length;
+  $('loadInfo').textContent = `🎶 ${count} de 90 canciones cargadas`;
+  const faltan = [];
+  for(let i=1;i<=90;i++) if(!songs[i]) faltan.push(i);
+  $('missing').textContent = faltan.length && count>0
+    ? 'Números sin canción (no entrarán en el bombo): ' + faltan.join(', ') : '';
+  $('startBtn').disabled = count===0;
+  $('pdfBtn').disabled = count===0;
+}
+
+$('startBtn').addEventListener('click', () => {
+  $('setup').style.display='none';
+  $('game').style.display='block';
+  initGame();
+});
+
+// Los mismos botones de duración se repiten en el aviso de "¿Reiniciar?" para poder
+// cambiar de modo (Completa/Corta/Exprés) sin tener que volver a la pantalla de carga.
+$('resetDurationSwitch').innerHTML = $('durationSwitch').innerHTML;
+
+function attachDurButtons(){
+  document.querySelectorAll('.durBtn').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.durBtn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll(`.durBtn[data-balls="${btn.dataset.balls}"]`).forEach(b=>b.classList.add('active'));
+      maxBalls = Number(btn.dataset.balls) || 0;
+    });
+  });
+}
+attachDurButtons();
+
+/* ================= TABLERO ================= */
+function buildBoard(){
+  const b = $('board'); b.innerHTML='';
+  for(let i=1;i<=90;i++){
+    const c = document.createElement('div');
+    c.className='cell'; c.id='c'+i; c.textContent=i;
+    b.appendChild(c);
+  }
+}
+
+function initGame(){
+  buildBoard();
+  const limit = maxBalls>0 ? maxBalls : 90;
+  // partida corta/exprés: el bombo se limita al RANGO 1..limit (no un recorte al azar),
+  // así coincide exactamente con el rango que usarán los cartones de los jugadores.
+  bag = Object.keys(songs).map(Number).filter(n => n<=limit);
+  // barajar (Fisher–Yates): garantiza que ninguna bola se repite jamás
+  for(let i=bag.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [bag[i],bag[j]] = [bag[j],bag[i]];
+  }
+  drawn=[]; current=null; phase='idle'; bingoWon=false;
+  $('history').innerHTML='';
+  $('checkBar').classList.remove('show');
+  $('celebrateOverlay').classList.remove('show');
+  ['mainBtn','lineaBtn','bingoBtn'].forEach(id => $(id).disabled = false);
+  $('pauseBtn').textContent = '⏸ Pausar';
+  $('songTitle').innerHTML='';
+  showIdle('Pulsa<br>SONAR CANCIÓN<br>para empezar');
+  updateCount();
+  setMainBtn('▶ Sonar canción', false);
+  syncReset();
+}
+
+function updateCount(){
+  $('songCount').textContent = `Bolas restantes: ${bag.length} · Cantadas: ${drawn.length}`;
+}
+
+/* ================= BOLA CENTRAL ================= */
+function showIdle(html){
+  stopEq();
+  $('ballIdle').style.display='block'; $('ballIdle').innerHTML=html;
+  $('ballVideo').style.display='none';
+  $('ballEq').style.display='none';
+  $('ballNumber').style.display='none';
+  $('songTitle').innerHTML='';
+}
+function showVideo(){ $('ballIdle').style.display='none'; $('ballVideo').style.display='block'; $('ballEq').style.display='none'; $('ballNumber').style.display='none'; }
+function showEq(){ $('ballIdle').style.display='none'; $('ballVideo').style.display='none'; $('ballEq').style.display='block'; $('ballNumber').style.display='none'; }
+function showNumber(n){
+  stopEq();
+  $('ballIdle').style.display='none'; $('ballVideo').style.display='none'; $('ballEq').style.display='none';
+  const el=$('ballNumber'); el.style.display='flex'; el.textContent=n;
+  el.style.animation='none'; void el.offsetWidth; el.style.animation='';
+}
+
+/* ================= FLUJO PRINCIPAL ================= */
+function setMainBtn(txt,dis){ $('mainBtn').textContent=txt; $('mainBtn').disabled=dis; }
+
+$('pauseBtn').addEventListener('click', () => {
+  if(!mediaEl) return;
+  if(mediaEl.paused){
+    mediaEl.play().catch(()=>{});
+    $('pauseBtn').textContent = '⏸ Pausar';
+    if(mediaEl.tagName !== 'VIDEO') startEq();
+  } else {
+    mediaEl.pause();
+    $('pauseBtn').textContent = '▶ Reanudar';
+    stopEq();
+  }
+});
+
+$('mainBtn').addEventListener('click', () => {
+  ensureAudio();
+  if(phase==='idle' || phase==='revealed') playNext();
+  else if(phase==='playing') reveal();
+});
+
+function playNext(){
+  if(bingoWon) return;
+  if(bag.length===0){
+    showIdle('🎉<br>¡NO QUEDAN<br>MÁS BOLAS!');
+    setMainBtn('Fin del bombo', true);
+    return;
+  }
+  current = bag.pop();          // extrae del bombo: nunca se repetirá
+  const s = songs[current];
+  stopMedia();
+  $('songTitle').innerHTML=''; // se oculta hasta revelar el número
+
+  if(s.isVideo){
+    const v = $('ballVideo');
+    v.src = s.url; v.currentTime=0;
+    mediaEl = v;
+    showVideo();
+    v.play().catch(()=>{});
+  } else {
+    const a = new Audio(s.url);
+    mediaEl = a;
+    connectAnalyser(a);
+    showEq(); startEq();
+    a.play().catch(()=>{});
+  }
+  phase='playing';
+  setMainBtn('👁 Revelar número', false);
+  $('pauseBtn').textContent = '⏸ Pausar';
+  syncPlaying();
+}
+
+function reveal(){
+  // la canción NO se detiene: sigue sonando de fondo mientras se muestra el número
+  showNumber(current);
+  speakNumber(current);
+  const s = songs[current];
+  const st = $('songTitle');
+  st.style.animation='none'; void st.offsetWidth; st.style.animation='';
+  st.innerHTML = `<span>🎵 ${cleanName(s.name)}</span>`;
+  const cell = $('c'+current);
+  document.querySelectorAll('.cell.last').forEach(c=>c.classList.remove('last'));
+  cell.classList.add('on','last');
+  drawn.push(current);
+  const h=document.createElement('div'); h.className='h'; h.textContent=current;
+  $('history').prepend(h);
+  while($('history').children.length>10) $('history').lastChild.remove();
+  updateCount();
+  phase='revealed';
+  setMainBtn(bag.length? '▶ Sonar siguiente canción':'Fin del bombo', bag.length===0);
+  syncDrawn();
+}
+
+function stopMedia(){
+  if(mediaEl){ mediaEl.pause(); }
+  stopEq();
+}
+
+/* ================= ECUALIZADOR ================= */
+function ensureAudio(){
+  if(!actx){ actx = new (window.AudioContext||window.webkitAudioContext)(); }
+  if(actx.state==='suspended') actx.resume();
+}
+function connectAnalyser(el){
+  ensureAudio();
+  analyser = actx.createAnalyser();
+  analyser.fftSize = 128;
+  sourceNode = actx.createMediaElementSource(el);
+  sourceNode.connect(analyser);
+  analyser.connect(actx.destination);
+}
+function startEq(){
+  const cv=$('ballEq'), ctx=cv.getContext('2d');
+  const size = cv.parentElement.clientWidth;
+  cv.width=size; cv.height=size;
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  function draw(){
+    eqRAF = requestAnimationFrame(draw);
+    analyser.getByteFrequencyData(data);
+    ctx.clearRect(0,0,size,size);
+    const bars=32, cx=size/2, cy=size/2, r0=size*0.22;
+    for(let i=0;i<bars;i++){
+      const v = data[i+2]/255;
+      const len = r0*0.2 + v*size*0.24;
+      const ang = (i/bars)*Math.PI*2 - Math.PI/2;
+      const x1=cx+Math.cos(ang)*r0, y1=cy+Math.sin(ang)*r0;
+      const x2=cx+Math.cos(ang)*(r0+len), y2=cy+Math.sin(ang)*(r0+len);
+      const g=ctx.createLinearGradient(x1,y1,x2,y2);
+      g.addColorStop(0,'#FF4D9D'); g.addColorStop(1,'#FFB930');
+      ctx.strokeStyle=g; ctx.lineWidth=size*0.022; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    }
+    // nota central
+    ctx.fillStyle='rgba(255,247,232,.9)';
+    ctx.font = `${size*0.16}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🎵',cx,cy);
+  }
+  draw();
+}
+function stopEq(){ if(eqRAF){ cancelAnimationFrame(eqRAF); eqRAF=null; } }
+
+/* ================= CANTAR BOLAS (síntesis de voz) ================= */
+let voices = [];
+
+function loadVoices(){
+  voices = speechSynthesis.getVoices();
+  // españolas primero, luego el resto
+  voices.sort((a,b) => {
+    const ae = a.lang.toLowerCase().startsWith('es') ? 0 : 1;
+    const be = b.lang.toLowerCase().startsWith('es') ? 0 : 1;
+    return ae-be || a.name.localeCompare(b.name);
+  });
+  const sel = $('voiceSelect');
+  sel.innerHTML = '';
+  if(voices.length === 0){
+    sel.innerHTML = '<option>Sin voces disponibles</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  voices.forEach((v,i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = `${v.lang.startsWith('es')?'🇪🇸 ':''}${v.name} (${v.lang})`;
+    sel.appendChild(o);
+  });
+  // preseleccionar la primera voz en español
+  const es = voices.findIndex(v => v.lang.toLowerCase().startsWith('es'));
+  sel.value = es >= 0 ? es : 0;
+}
+loadVoices();
+if(speechSynthesis.onvoiceschanged !== undefined){
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+function speakNumber(n, esPrueba){
+  if(!esPrueba && !$('speakToggle').checked) return;
+  if(!('speechSynthesis' in window) || voices.length===0) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(esPrueba ? `Bola número ${n}. Así sonará cada bola.` : String(n));
+  const v = voices[parseInt($('voiceSelect').value,10)];
+  if(v){ u.voice = v; u.lang = v.lang; }
+  u.rate = 0.9; u.pitch = 1; u.volume = 1;
+  // bajar la música mientras habla y restaurarla al terminar
+  let vAnterior = null;
+  u.onstart = () => {
+    if(mediaEl && !mediaEl.paused){ vAnterior = mediaEl.volume; mediaEl.volume = Math.min(vAnterior, 0.25); }
+  };
+  const restaurar = () => { if(vAnterior !== null && mediaEl) mediaEl.volume = vAnterior; };
+  u.onend = restaurar; u.onerror = restaurar;
+  speechSynthesis.speak(u);
+}
+
+$('voiceTest').addEventListener('click', () => {
+  speakNumber(Math.floor(Math.random()*90)+1, true);
+});
+
+$('voiceRepeat').addEventListener('click', () => {
+  // repite en voz alta la última bola cantada (funciona aunque el interruptor esté apagado)
+  const ultima = drawn.length ? drawn[drawn.length-1] : null;
+  if(ultima === null) return;
+  if(voices.length===0) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(`Repito: bola ${ultima}. ${ultima}.`);
+  const v = voices[parseInt($('voiceSelect').value,10)];
+  if(v){ u.voice = v; u.lang = v.lang; }
+  u.rate = 0.85;
+  let vAnterior = null;
+  u.onstart = () => {
+    if(mediaEl && !mediaEl.paused){ vAnterior = mediaEl.volume; mediaEl.volume = Math.min(vAnterior, 0.25); }
+  };
+  const restaurar = () => { if(vAnterior !== null && mediaEl) mediaEl.volume = vAnterior; };
+  u.onend = restaurar; u.onerror = restaurar;
+  speechSynthesis.speak(u);
+});
+
+/* ================= LÍNEA Y BINGO (comprobación en línea, sin tapar el panel) ================= */
+let checkMode = null;   // 'linea' | 'bingo'
+let prevVolume = 1;     // volumen antes de la comprobación
+
+function setGameButtons(dis){
+  ['mainBtn','lineaBtn','bingoBtn'].forEach(id => $(id).disabled = dis);
+}
+
+function duckVolume(){   // bajar al 30% para hablar por el micro
+  if(mediaEl){ prevVolume = mediaEl.volume; mediaEl.volume = 0.3; }
+}
+function restoreVolume(){ // volver al volumen anterior
+  if(mediaEl){ mediaEl.volume = prevVolume; }
+}
+
+function openCheck(mode, auto){
+  if(bingoWon || $('checkBar').classList.contains('show')) return false;
+  checkMode = mode;
+  duckVolume();          // la canción sigue sonando, pero bajita
+  setGameButtons(true);
+  const bar = $('checkBar');
+  bar.className = '';
+  bar.classList.add('show');
+  $('checkTitle').textContent = mode==='linea' ? '📣 ¡LÍNEA CANTADA!' : '🏆 ¡BINGO CANTADO!';
+  if(auto){
+    $('checkText').textContent = '🔎 Revisando el cartón automáticamente…';
+    $('checkAsk').style.display='none';
+  } else {
+    $('checkText').textContent = 'Volumen bajado al 30%. Comprobad los números en el panel… ¿es correcta?';
+    $('checkAsk').style.display='flex';
+  }
+  $('checkResult').style.display='none';
+  syncAnnouncement(mode, activeClaim && activeClaim.type===mode ? activeClaim.name : null);
+  updateClaimButtonsAvailability();
+  return true;
+}
+$('lineaBtn').addEventListener('click', ()=>openCheck('linea'));
+$('bingoBtn').addEventListener('click', ()=>openCheck('bingo'));
+
+/* Números ya cantados, como Set, para comparar contra el cartón del jugador */
+function drawnSet(){ return new Set(drawn); }
+
+/* Comprueba si un cartón (grid de 3 filas x N columnas, con null en huecos)
+   cumple la condición de línea (una fila completa cantada) o bingo (cartón entero cantado) */
+function computeClaimValidity(type, grid){
+  const called = drawnSet();
+  if(type === 'bingo'){
+    for(const row of grid){
+      for(const n of row){
+        if(n !== null && n !== undefined && !called.has(n)) return false;
+      }
+    }
+    return true;
+  }
+  // línea: basta con que una fila esté completa
+  return grid.some(row => {
+    const nums = row.filter(n => n !== null && n !== undefined);
+    return nums.length > 0 && nums.every(n => called.has(n));
+  });
+}
+
+/* Busca el cartón del jugador en Firebase y decide solo si la línea/bingo es válida,
+   comparando con los números ya cantados. Si no hay cartón disponible (jugador antiguo,
+   sin conexión, etc.) se cae a la revisión manual de siempre. */
+function autoResolveClaim(data){
+  const fallbackToManual = () => {
+    $('checkText').textContent = 'No se pudo verificar el cartón automáticamente. Comprobad los números en el panel… ¿es correcta?';
+    $('checkAsk').style.display = 'flex';
+  };
+  if(!roomRef || !data.playerId){ fallbackToManual(); return; }
+  roomRef.child('players/' + data.playerId + '/card').once('value')
+    .then(snap => {
+      const grid = snap.val();
+      if(!grid){ fallbackToManual(); return; }
+      const valid = computeClaimValidity(checkMode, grid);
+      setTimeout(() => finishCheck(valid ? 'ok' : 'bad'), 900);
+    })
+    .catch(fallbackToManual);
+}
+
+/* CORRECTA: sin efectos de sonido, la canción sigue sonando, cartel grande + confeti
+   INCORRECTA: abucheos y aviso en la barra
+   Compartido entre la decisión manual (botones OK/Incorrecto) y la revisión automática. */
+function finishCheck(status){
+  restoreVolume();
+  syncResult(status, checkMode);
+  activeClaim = null;
+  if(status === 'ok'){
+    $('checkBar').classList.remove('show');
+    launchConfetti();
+    setTimeout(launchConfetti, 700);   // doble tanda de confeti
+    if(checkMode==='bingo'){
+      bingoWon = true;
+      $('celebTitle').textContent = '🏆 ¡BINGO CORRECTO! 🏆';
+      $('celebText').textContent = '¡Enhorabuena al ganador o ganadora! La partida ha terminado.';
+      $('celebBtn').textContent = '↺ Jugar otra partida';
+    } else {
+      $('celebTitle').textContent = '🎉 ¡LÍNEA CORRECTA! 🎉';
+      $('celebText').textContent = '¡Bien jugado! La partida continúa.';
+      $('celebBtn').textContent = '▶ Continuar partida';
+    }
+    $('celebrateOverlay').classList.add('show');
+  } else {
+    ensureAudio(); playBoos();
+    const que = checkMode==='linea' ? 'línea' : 'bingo';
+    showCheckResult('fallo','✘ ¡INCORRECTO!',`Ese ${que} no era válido… ¡abucheos! El juego continúa.`);
+  }
+}
+
+$('okBtn').addEventListener('click', ()=> finishCheck('ok'));
+
+$('celebBtn').addEventListener('click', ()=>{
+  $('celebrateOverlay').classList.remove('show');
+  if(roomRef && !bingoWon) roomRef.child('announcement').set(null);
+  if(bingoWon){ stopMedia(); if(mediaEl) mediaEl.src=''; initGame(); return; }
+  setGameButtons(false);
+  if(phase==='playing') setMainBtn('👁 Revelar número', false);
+  updateClaimButtonsAvailability();
+});
+
+$('badBtn').addEventListener('click', ()=> finishCheck('bad'));
+
+function showCheckResult(cls,title,text){
+  const bar=$('checkBar');
+  bar.className = 'show '+cls;
+  $('checkTitle').textContent=title;
+  $('checkText').textContent=text;
+  $('checkAsk').style.display='none';
+  $('checkResult').style.display='flex';
+  $('continueBtn').textContent = phase==='playing' ? '▶ Continuar' : '▶ Siguiente bola';
+}
+
+$('continueBtn').addEventListener('click', ()=>{
+  if(roomRef) roomRef.child('announcement').set(null);
+  $('checkBar').classList.remove('show');
+  setGameButtons(false);
+  updateClaimButtonsAvailability();
+  if(phase==='playing'){ setMainBtn('👁 Revelar número', false); return; }
+  if(phase==='revealed' || phase==='idle') playNext();
+});
+
+/* ================= REINICIAR ================= */
+$('resetBtn').addEventListener('click', ()=> $('resetOverlay').classList.add('show'));
+$('resetNo').addEventListener('click', ()=> $('resetOverlay').classList.remove('show'));
+$('resetYes').addEventListener('click', ()=>{
+  $('resetOverlay').classList.remove('show');
+  stopMedia();
+  initGame();
+});
+
+/* ================= EFECTOS DE SONIDO (sintetizados) ================= */
+function playBoos(){
+  const now=actx.currentTime, dur=2.6;
+  // varias voces graves descendentes "buuu"
+  for(let v=0;v<6;v++){
+    const o=actx.createOscillator(); o.type='sawtooth';
+    const f0=140+Math.random()*60;
+    o.frequency.setValueAtTime(f0,now);
+    o.frequency.linearRampToValueAtTime(f0*0.75, now+dur);
+    const lfo=actx.createOscillator(); lfo.frequency.value=5+Math.random()*2;
+    const lg=actx.createGain(); lg.gain.value=6;
+    lfo.connect(lg).connect(o.frequency);
+    const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=500;
+    const g=actx.createGain();
+    const t0=now+Math.random()*0.25;
+    g.gain.setValueAtTime(0.001,t0);
+    g.gain.exponentialRampToValueAtTime(0.12,t0+0.2);
+    g.gain.setValueAtTime(0.12,now+dur-0.5);
+    g.gain.exponentialRampToValueAtTime(0.001,now+dur);
+    o.connect(lp).connect(g).connect(actx.destination);
+    o.start(t0); o.stop(now+dur);
+    lfo.start(t0); lfo.stop(now+dur);
+  }
+}
+
+/* ================= CONFETI ================= */
+function launchConfetti(){
+  const colors=['#FFB930','#FF4D9D','#3DDC84','#FFF7E8','#7A5CFF'];
+  for(let i=0;i<140;i++){
+    const c=document.createElement('div');
+    c.className='conf';
+    c.style.left = Math.random()*100+'vw';
+    c.style.background = colors[Math.floor(Math.random()*colors.length)];
+    c.style.transform = `rotate(${Math.random()*360}deg)`;
+    document.body.appendChild(c);
+    const fall = 2500+Math.random()*2000;
+    c.animate([
+      {transform:`translateY(0) rotate(0deg)`,opacity:1},
+      {transform:`translateY(105vh) rotate(${540+Math.random()*360}deg)`,opacity:.8}
+    ],{duration:fall,easing:'cubic-bezier(.2,.6,.4,1)'});
+    setTimeout(()=>c.remove(), fall);
+  }
+}
+
+/* ================= PDF: LISTA DE BOLAS Y CANCIONES ================= */
+function cleanName(name){
+  let n = name.replace(/\.[^.]+$/,'');          // quitar extensión
+  n = n.replace(/^\s*\d{1,2}\s*[-–_.·)]*\s*/,''); // quitar número inicial y separador
+  return n.trim() || name;
+}
+
+function downloadPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const W = 210, margin = 12;
+
+  // Cabecera
+  doc.setFillColor(20,9,43);
+  doc.rect(0,0,W,26,'F');
+  doc.setTextColor(255,185,48);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(20);
+  doc.text('BINGO MUSICAL', W/2, 12, {align:'center'});
+  doc.setTextColor(255,247,232);
+  doc.setFontSize(10);
+  doc.text('Lista de canciones · cada bola corresponde a una canción', W/2, 19, {align:'center'});
+
+  // Dos columnas: 1-45 y 46-90
+  const colW = (W - margin*2 - 6)/2;
+  const rowH = 5.6;
+  const top = 33;
+  doc.setFontSize(8.5);
+
+  for(let i=1;i<=90;i++){
+    const col = i<=45 ? 0 : 1;
+    const row = (i-1)%45;
+    const x = margin + col*(colW+6);
+    const y = top + row*rowH;
+
+    // franja alterna
+    if(row%2===0){
+      doc.setFillColor(244,240,250);
+      doc.rect(x, y-3.8, colW, rowH, 'F');
+    }
+    // bola con el número
+    doc.setFillColor(255,185,48);
+    doc.circle(x+3.4, y-1.1, 2.6, 'F');
+    doc.setTextColor(58,32,0);
+    doc.setFont('helvetica','bold');
+    doc.text(String(i), x+3.4, y, {align:'center'});
+    // nombre de la canción
+    doc.setTextColor(30,20,50);
+    doc.setFont('helvetica','normal');
+    const s = songs[i];
+    let title = s ? cleanName(s.name) : '— (sin canción)';
+    if(!s) doc.setTextColor(160,160,160);
+    title = doc.splitTextToSize(title, colW-10)[0]; // una línea, truncada
+    doc.text(title, x+8, y);
+  }
+
+  doc.setTextColor(150,150,150);
+  doc.setFontSize(8);
+  doc.text('Marca el número en tu cartón cuando adivines la canción. ¡Suerte!', W/2, 290, {align:'center'});
+
+  doc.save('bingo-musical-canciones.pdf');
+}
+$('pdfBtn').addEventListener('click', downloadPDF);
+$('pdfBtn2').addEventListener('click', downloadPDF);
+
+/* ================= CARTONES PARA IMPRIMIR (partida offline) ================= */
+let offlineBatch = null; // { cards:[...], maxNo, cols, count, createdAt }
+
+/* Regla de tres: cuantas menos bolas se jueguen, menos números lleva el cartón
+   (y menos columnas, para que el cartón sea más pequeño y quepan más por hoja).
+   90 bolas → 15 números / 9 columnas (cartón clásico).
+   45 bolas → 8 números / 5 columnas.
+   27 bolas → 5 números / 3 columnas. */
+function offModeConfig(maxNo){
+  const count = Math.max(3, Math.round(15 * maxNo/90));
+  const cols  = Math.max(3, Math.round(9 * maxNo/90));
+  if(maxNo>=90) return { maxNo:90, cols:9, count:15, perPage:4, label:'Completa (1-90)' };
+  if(maxNo>=45) return { maxNo:45, cols, count, perPage:6, label:'Corta (1-45)' };
+  return { maxNo:27, cols, count, perPage:9, label:'Exprés (1-27)' };
+}
+
+function offComputeColumnRanges(maxNumber, numCols){
+  if(maxNumber===90 && numCols===9){
+    return [[1,9],[10,19],[20,29],[30,39],[40,49],[50,59],[60,69],[70,79],[80,90]];
+  }
+  const base = Math.floor(maxNumber/numCols);
+  let extra = maxNumber - base*numCols;
+  const ranges = []; let start = 1;
+  for(let i=0;i<numCols;i++){
+    const size = base + (extra>0 ? 1 : 0);
+    if(extra>0) extra--;
+    const end = start + Math.max(size,1) - 1;
+    ranges.push([start, end]);
+    start = end + 1;
+  }
+  return ranges;
+}
+
+function offDistributeEven(total, parts){
+  const base = Math.floor(total/parts);
+  let extra = total - base*parts;
+  const arr = Array(parts).fill(base);
+  const idxs = [...Array(parts).keys()].sort(()=>Math.random()-0.5);
+  for(let i=0;i<extra;i++) arr[idxs[i]]++;
+  return arr;
+}
+
+function offGenerateCard(maxNumber, numCols, totalNumbers){
+  const ranges = offComputeColumnRanges(maxNumber, numCols);
+  const colCap = ranges.map(r => Math.min(3, r[1]-r[0]+1));
+  const capSum = colCap.reduce((a,b)=>a+b,0);
+  const target = Math.min(totalNumbers, capSum);
+  for(let attempt=0; attempt<500; attempt++){
+    const rowCounts = offDistributeEven(target, 3);
+    const colCounts = Array(numCols).fill(0);
+    let remaining = target, guard=0;
+    while(remaining>0 && guard<3000){
+      guard++;
+      const i = Math.floor(Math.random()*numCols);
+      if(colCounts[i]<colCap[i]){ colCounts[i]++; remaining--; }
+    }
+    if(remaining>0) continue;
+    const rowsLeft = [...rowCounts];
+    const order = [...Array(numCols).keys()].sort(()=>Math.random()-0.5);
+    const assign = Array(numCols).fill(null);
+    let ok = true;
+    for(const c of order){
+      const need = colCounts[c];
+      if(need===0){ assign[c] = []; continue; }
+      const avail = [0,1,2].filter(r=>rowsLeft[r]>0);
+      if(avail.length < need){ ok=false; break; }
+      const shuffled = avail.sort(()=>Math.random()-0.5);
+      const chosen = shuffled.slice(0,need).sort((a,b)=>a-b);
+      chosen.forEach(r=>rowsLeft[r]--);
+      assign[c] = chosen;
+    }
+    if(!ok || rowsLeft.some(x=>x!==0)) continue;
+    const grid = Array.from({length:3}, ()=>Array(numCols).fill(null));
+    for(let c=0;c<numCols;c++){
+      const [lo,hi] = ranges[c];
+      const pool = []; for(let n=lo;n<=hi;n++) pool.push(n);
+      for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+      const chosenNums = pool.slice(0,colCounts[c]).sort((a,b)=>a-b);
+      assign[c].forEach((r,idx)=>{ grid[r][c] = chosenNums[idx]; });
+    }
+    return grid;
+  }
+  return null;
+}
+
+function modeLabel(maxNo){
+  return offModeConfig(maxNo).label;
+}
+
+$('genCartonesBtn').addEventListener('click', async () => {
+  const n = Math.max(4, Math.min(500, Number($('numCartones').value) || 200));
+  const maxNo = maxBalls>0 ? maxBalls : 90;
+  const cfg = offModeConfig(maxNo);
+  $('offlineStatus').textContent = `⏳ Generando ${n} cartones (${cfg.count} números cada uno)…`;
+  $('genCartonesBtn').disabled = true;
+  await new Promise(r=>setTimeout(r, 30)); // deja pintar el mensaje antes de bloquear el hilo
+
+  const cards = [];
+  for(let i=0;i<n;i++){
+    const g = offGenerateCard(cfg.maxNo, cfg.cols, cfg.count);
+    if(g) cards.push(g);
+  }
+  offlineBatch = { cards, maxNo: cfg.maxNo, cols: cfg.cols, count: cfg.count, createdAt: Date.now() };
+  try{ localStorage.setItem('bingoOfflineBatch', JSON.stringify(offlineBatch)); }catch(e){}
+
+  $('offlineStatus').textContent = `✅ ${cards.length} cartones generados · Modo: ${cfg.label} · ${cfg.count} números por cartón`;
+  $('genCartonesBtn').disabled = false;
+  $('dlCartonesPdfBtn').disabled = false;
+  $('saveBatchBtn').disabled = false;
+});
+
+/* Disposición de tarjetas por hoja A4: cuanto más corta la partida, cartón más
+   estrecho (menos columnas) y más caben por hoja, aprovechando mejor el papel. */
+function offPageLayout(perPage){
+  if(perPage===4) return {cols:2, rows:2};
+  if(perPage===6) return {cols:2, rows:3};
+  return {cols:3, rows:3}; // 9 por hoja (modo exprés)
+}
+
+function buildCardsPdf(batch){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const W = 210, H = 297, margin = 8, gap = 4;
+  const cfg = offModeConfig(batch.maxNo);
+  const numCols = batch.cols || cfg.cols;
+  const { cols: pageCols, rows: pageRows } = offPageLayout(cfg.perPage);
+  const perPage = pageCols * pageRows;
+
+  const cardW = (W - margin*2 - gap*(pageCols-1)) / pageCols;
+  const cardH = (H - margin*2 - gap*(pageRows-1)) / pageRows;
+  const positions = [];
+  for(let r=0;r<pageRows;r++){
+    for(let c=0;c<pageCols;c++){
+      positions.push([margin + c*(cardW+gap), margin + r*(cardH+gap)]);
+    }
+  }
+
+  // tamaño de letra y separación vertical, ajustados por modo (más columnas = casillas más
+  // estrechas = letra más pequeña y menos separación; menos columnas = casillas más altas = más aire)
+  const songFont = numCols<=3 ? 6.4 : numCols<=5 ? 5.6 : 4.6;
+  const numFont  = numCols<=3 ? 13  : numCols<=5 ? 12  : 10;
+  const layoutMap = {
+    9: { numY: 5.0,  songStart: 8.6,  lineH: 2.0 },
+    5: { numY: 5.8,  songStart: 9.8,  lineH: 2.4 },
+    3: { numY: 6.4,  songStart: 10.8, lineH: 2.8 }
+  };
+  const lay = layoutMap[numCols] || layoutMap[9];
+
+  batch.cards.forEach((grid, idx) => {
+    const posIdx = idx % perPage;
+    if(idx>0 && posIdx===0) doc.addPage();
+    const [x0,y0] = positions[posIdx];
+
+    // marco + título (solo el nombre del juego y el número de cartón, nada más)
+    doc.setDrawColor(255,185,48);
+    doc.setLineWidth(0.4);
+    doc.rect(x0, y0, cardW, cardH);
+    doc.setFillColor(20,9,43);
+    doc.rect(x0, y0, cardW, 9, 'F');
+    doc.setTextColor(255,185,48);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.text('BINGO MUSICAL', x0+3, y0+6);
+    doc.setFontSize(9);
+    doc.text('Nº ' + String(idx+1).padStart(3,'0'), x0+cardW-3, y0+6, {align:'right'});
+
+    // rejilla 3 x numCols
+    const gridTop = y0 + 12;
+    const gridH = cardH - 16;
+    const cellW = cardW/numCols;
+    const cellH = gridH/3;
+    doc.setLineWidth(0.25);
+    doc.setDrawColor(120,90,160);
+    for(let r=0;r<3;r++){
+      for(let c=0;c<numCols;c++){
+        const cx = x0 + c*cellW;
+        const cy = gridTop + r*cellH;
+        doc.rect(cx, cy, cellW, cellH);
+        const n = grid[r][c];
+        if(n!==null){
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(numFont);
+          doc.setTextColor(30,20,50);
+          doc.text(String(n), cx+cellW/2, cy+lay.numY, {align:'center'});
+
+          // nombre de la canción, envuelto en varias líneas, siempre por debajo del número
+          const s = songs[n];
+          if(s){
+            doc.setFont('helvetica','normal');
+            doc.setFontSize(songFont);
+            doc.setTextColor(90,70,110);
+            const title = cleanName(s.name);
+            const maxLines = Math.max(1, Math.floor((cellH - lay.songStart - 1) / lay.lineH));
+            let lines = doc.splitTextToSize(title, cellW-2.4);
+            if(lines.length>maxLines){
+              lines = lines.slice(0,maxLines);
+              lines[maxLines-1] = lines[maxLines-1].replace(/.{0,3}$/, '…');
+            }
+            lines.forEach((line,li)=>{
+              doc.text(line, cx+cellW/2, cy+lay.songStart+li*lay.lineH, {align:'center'});
+            });
+          }
+        }
+      }
+    }
+    doc.setTextColor(150,150,150);
+    doc.setFontSize(6);
+    doc.setFont('helvetica','normal');
+    doc.text('Modo: ' + cfg.label, x0+3, y0+cardH-1.6);
+  });
+
+  // líneas de corte discretas en cada página
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    doc.setDrawColor(210,210,210);
+    doc.setLineDashPattern([1,1],0);
+    for(let c=1;c<pageCols;c++){
+      const x = margin + c*cardW + (c-0.5)*gap;
+      doc.line(x, margin, x, H-margin);
+    }
+    for(let r=1;r<pageRows;r++){
+      const y = margin + r*cardH + (r-0.5)*gap;
+      doc.line(margin, y, W-margin, y);
+    }
+    doc.setLineDashPattern([],0);
+  }
+
+  doc.save('cartones-bingo-musical.pdf');
+}
+
+$('dlCartonesPdfBtn').addEventListener('click', () => {
+  if(!offlineBatch || !offlineBatch.cards.length) return;
+  buildCardsPdf(offlineBatch);
+});
+
+$('saveBatchBtn').addEventListener('click', () => {
+  if(!offlineBatch) return;
+  const blob = new Blob([JSON.stringify(offlineBatch)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cartones-backup-' + new Date(offlineBatch.createdAt).toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$('loadBatchInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data.cards || !Array.isArray(data.cards)) throw new Error('Archivo no válido');
+      offlineBatch = data;
+      $('offlineStatus').textContent = `✅ ${data.cards.length} cartones cargados · Modo: ${modeLabel(data.maxNo||90)}`;
+      $('dlCartonesPdfBtn').disabled = false;
+      $('saveBatchBtn').disabled = false;
+    }catch(err){
+      $('offlineStatus').textContent = '✘ No se pudo leer ese archivo: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* recuperar la última tanda generada si vuelves a abrir la página */
+(function bootOfflineBatch(){
+  try{
+    const raw = localStorage.getItem('bingoOfflineBatch');
+    if(raw){
+      const data = JSON.parse(raw);
+      if(data && data.cards && data.cards.length){
+        offlineBatch = data;
+        $('offlineStatus').textContent = `📦 Tienes una tanda guardada de ${data.cards.length} cartones (modo: ${modeLabel(data.maxNo||90)}). Puedes descargarla de nuevo o generar una nueva.`;
+        $('dlCartonesPdfBtn').disabled = false;
+        $('saveBatchBtn').disabled = false;
+      }
+    }
+  }catch(e){}
+})();
+
+/* ================= GENERADOR DE QR ================= */
+function openQR(){ $('qrOverlay').classList.add('show'); $('qrLink').focus(); }
+$('qrBtn').addEventListener('click', openQR);
+$('qrBtn2').addEventListener('click', openQR);
+$('qrClose').addEventListener('click', ()=> $('qrOverlay').classList.remove('show'));
+$('qrGen').addEventListener('click', ()=>{
+  const link = $('qrLink').value.trim();
+  if(!link) return;
+  const box = $('qrBox');
+  box.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'background:#fff;padding:16px;border-radius:14px';
+  box.appendChild(wrap);
+  new QRCode(wrap, {
+    text: link,
+    width: 260, height: 260,
+    colorDark:'#14092B', colorLight:'#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+});
+$('qrLink').addEventListener('keydown', e => { if(e.key==='Enter') $('qrGen').click(); });
+
+/* Al terminar la canción sola, dejar el ecualizador quieto pero permitir revelar */
+document.addEventListener('play', ()=>{}, true);
+</script>
+</body>
+</html>
