@@ -124,12 +124,29 @@ const $ = id => document.getElementById(id);
 const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 const STORE_KEY = 'bingoDirectoConfig';
 
+// Configuración de tu proyecto Firebase y sala fija (ya vienen rellenas, no hace falta tocar nada)
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB142yrJef_6LfEIFi3DaiMcvij4PFYECk",
+  authDomain: "bingo-musical-61e51.firebaseapp.com",
+  databaseURL: "https://bingo-musical-61e51-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "bingo-musical-61e51",
+  storageBucket: "bingo-musical-61e51.firebasestorage.app",
+  messagingSenderId: "749137475237",
+  appId: "1:749137475237:web:32dd9bb76ade5faf0e3f4c",
+  measurementId: "G-JZWRQK27XP"
+};
+const DEFAULT_FIXED_ROOM_CODE = 'SANRAMON';
+
 let fbApp=null, fbDb=null, roomRef=null, roomCode=null;
 let localStream=null, pc=null, currentFacing='user', isLive=false;
 
 function loadSetup(){
-  try{ return JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); }
-  catch(e){ return null; }
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if(saved && saved.cfg && saved.room) return saved;
+  }catch(e){}
+  // Primera vez en este móvil: usar la configuración y sala de fábrica automáticamente
+  return { cfg: DEFAULT_FIREBASE_CONFIG, room: DEFAULT_FIXED_ROOM_CODE };
 }
 function saveSetup(data){ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
 function clearSetup(){ localStorage.removeItem(STORE_KEY); }
@@ -153,11 +170,8 @@ function initFirebaseAndJoin(cfg, room){
 
 (function boot(){
   const saved = loadSetup();
-  if(saved && saved.cfg && saved.room){
-    initFirebaseAndJoin(saved.cfg, saved.room);
-  } else {
-    $('setupPanel').classList.remove('hidden');
-  }
+  saveSetup(saved); // recordarlo en este móvil para la próxima vez
+  initFirebaseAndJoin(saved.cfg, saved.room);
 })();
 
 $('saveSetupBtn').addEventListener('click', () => {
