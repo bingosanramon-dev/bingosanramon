@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Retransmitir en directo · Bingo San Ramón</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --verde-950:#042315; --verde-900:#0B5D3B; --verde-800:#0E7A4D; --verde-700:#149A61;
+  --dorado:#E8B23B; --dorado-claro:#F6D27E;
+  --crema:#FFF8EA; --panel:#0F4A32;
+  --ok:#3DDC84; --mal:#FF5252;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Nunito',system-ui,sans-serif;color:var(--crema);min-height:100vh;padding-bottom:30px;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, var(--verde-700) 0%, transparent 60%),
+    radial-gradient(circle at 50% 100%, var(--verde-800) 0%, var(--verde-950) 75%);
+  background-attachment:fixed;
+}
+h1,.display{font-family:'Bungee',cursive}
+.hidden{display:none!important}
+header{text-align:center;padding:20px 10px 6px}
+header h1{font-size:clamp(1.2rem,5vw,1.6rem);letter-spacing:1px;color:var(--dorado);text-shadow:0 0 16px rgba(232,178,59,.4)}
+header .sub{font-weight:800;opacity:.7;font-size:.75rem;letter-spacing:2px;text-transform:uppercase}
+.wrap{max-width:480px;margin:0 auto;padding:0 14px}
+.panel{
+  background:var(--panel);border-radius:20px;padding:26px 22px;
+  border:2px solid rgba(232,178,59,.35);box-shadow:0 0 30px rgba(0,0,0,.5);
+  text-align:center;margin-top:20px;
+}
+.panel h2{font-family:'Bungee',cursive;color:var(--dorado-claro);font-size:1.2rem;margin-bottom:10px}
+.panel p{font-weight:600;font-size:.88rem;opacity:.85;margin-bottom:16px;line-height:1.5}
+textarea,input[type=text]{
+  width:100%;padding:12px;border-radius:12px;border:2px solid rgba(232,178,59,.4);
+  background:#08301f;color:var(--crema);font-family:'Nunito',sans-serif;font-weight:700;
+  margin-bottom:10px;
+}
+textarea{min-height:90px;resize:vertical;font-size:.85rem}
+input[type=text]{text-align:center;letter-spacing:2px;font-size:1rem}
+.btn{
+  font-family:'Bungee',cursive;font-size:.95rem;border:none;border-radius:14px;
+  padding:15px 22px;cursor:pointer;color:#062015;
+  background:linear-gradient(180deg,var(--dorado-claro),var(--dorado));
+  box-shadow:0 5px 0 #8a6a1f,0 8px 18px rgba(0,0,0,.4);
+  transition:transform .08s,box-shadow .08s;letter-spacing:1px;width:100%;margin-bottom:10px;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #8a6a1f}
+.btn:disabled{filter:grayscale(.8) brightness(.7);cursor:not-allowed}
+.btn.verde{background:linear-gradient(180deg,#8af2bb,var(--ok));box-shadow:0 5px 0 #148b4c;color:#003318}
+.btn.verde:active{box-shadow:0 1px 0 #148b4c}
+.btn.roja{background:linear-gradient(180deg,#ff8a8a,var(--mal));box-shadow:0 5px 0 #a11c1c;color:#3d0000}
+.btn.roja:active{box-shadow:0 1px 0 #a11c1c}
+.btn.mini{padding:9px 16px;font-size:.72rem;box-shadow:none;background:rgba(255,255,255,.08);color:var(--crema);width:auto}
+.errMsg{color:var(--mal);font-weight:800;font-size:.85rem;margin-top:10px;min-height:1.2em}
+#previewWrap{
+  position:relative;width:100%;aspect-ratio:1;max-width:300px;margin:0 auto 16px;
+  border-radius:50%;overflow:hidden;
+  background:radial-gradient(circle at 32% 28%, var(--verde-700), var(--verde-950) 70%);
+  border:6px solid rgba(255,255,255,.15);box-shadow:0 0 60px rgba(232,178,59,.3), inset 0 -18px 40px rgba(0,0,0,.6);
+}
+#localVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#previewPlaceholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 26px;font-weight:800;opacity:.6;font-size:.85rem;line-height:1.5}
+#liveBadge{
+  position:absolute;top:8%;left:50%;transform:translateX(-50%);
+  background:var(--mal);color:#fff;font-family:'Bungee',cursive;font-size:.68rem;letter-spacing:1px;
+  padding:5px 12px;border-radius:20px;box-shadow:0 3px 10px rgba(0,0,0,.4);
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+#liveBadge.on{animation:pulse 1.2s infinite}
+#statusMsg{font-weight:800;font-size:.85rem;opacity:.85;margin-top:8px;min-height:1.2em}
+.footLink{display:block;text-align:center;margin-top:18px;opacity:.45;font-size:.75rem;font-weight:700;color:var(--crema);text-decoration:none}
+.footLink:hover{opacity:.8}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔴 RETRANSMITIR EN DIRECTO</h1>
+  <div class="sub">Bingo Club San Ramón</div>
+</header>
+
+<div class="wrap">
+
+  <!-- PASO 0: configuración inicial (solo la primera vez en este móvil) -->
+  <section id="setupPanel" class="panel hidden">
+    <h2>⚙️ Configuración inicial</h2>
+    <p>Solo hace falta una vez en este móvil. Pega la misma configuración de Firebase y el mismo <b>código de sala fijo</b> que tengas guardados en el ordenador del bingo (menú ⚙ arriba a la derecha en la pantalla del club).</p>
+    <textarea id="cfgArea" placeholder='{ "apiKey": "...", "databaseURL": "https://xxx.firebaseio.com", "projectId": "..." }'></textarea>
+    <input type="text" id="roomInputSetup" placeholder="CÓDIGO DE SALA FIJO" maxlength="20" style="text-transform:uppercase">
+    <button class="btn" id="saveSetupBtn">💾 Guardar y continuar</button>
+    <div class="errMsg" id="setupErr"></div>
+  </section>
+
+  <!-- PASO 1: panel de transmisión (uso normal, un solo toque) -->
+  <section id="streamPanel" class="hidden panel">
+    <h2>📹 Tu cámara</h2>
+    <p>Pulsa el botón para encender la cámara y salir en directo. Tu imagen aparecerá en la bola central de la pantalla del bingo hasta que pulses "Finalizar".</p>
+
+    <div id="previewWrap">
+      <video id="localVideo" autoplay muted playsinline class="hidden"></video>
+      <div id="previewPlaceholder">Pulsa "Salir en directo"<br>para verte aquí</div>
+      <div id="liveBadge" class="hidden">🔴 EN DIRECTO</div>
+    </div>
+
+    <button class="btn verde" id="goLiveBtn">▶ Salir en directo</button>
+    <button class="btn roja hidden" id="endLiveBtn">⏹ Finalizar transmisión</button>
+    <button class="btn mini" id="switchCamBtn" disabled>🔄 Cambiar cámara</button>
+
+    <div class="errMsg" id="streamErr"></div>
+    <div id="statusMsg"></div>
+  </section>
+
+  <a href="#" class="footLink" id="resetSetupLink">⚙ Cambiar configuración de este móvil</a>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+const STORE_KEY = 'bingoDirectoConfig';
+
+let fbApp=null, fbDb=null, roomRef=null, roomCode=null;
+let localStream=null, pc=null, currentFacing='user', isLive=false;
+
+function loadSetup(){
+  try{ return JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); }
+  catch(e){ return null; }
+}
+function saveSetup(data){ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+function clearSetup(){ localStorage.removeItem(STORE_KEY); }
+
+function initFirebaseAndJoin(cfg, room){
+  try{
+    fbApp = firebase.initializeApp(cfg, 'bingoDirecto_' + Date.now());
+    fbDb = fbApp.database();
+  }catch(e){
+    $('setupErr').textContent = 'Configuración de Firebase no válida: ' + e.message;
+    $('setupPanel').classList.remove('hidden');
+    $('streamPanel').classList.add('hidden');
+    return;
+  }
+  roomCode = room;
+  roomRef = fbDb.ref('rooms/' + room);
+  $('setupPanel').classList.add('hidden');
+  $('streamPanel').classList.remove('hidden');
+  $('statusMsg').textContent = '';
+}
+
+(function boot(){
+  const saved = loadSetup();
+  if(saved && saved.cfg && saved.room){
+    initFirebaseAndJoin(saved.cfg, saved.room);
+  } else {
+    $('setupPanel').classList.remove('hidden');
+  }
+})();
+
+$('saveSetupBtn').addEventListener('click', () => {
+  $('setupErr').textContent = '';
+  const raw = $('cfgArea').value.trim();
+  const room = $('roomInputSetup').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!raw){ $('setupErr').textContent = 'Pega la configuración de Firebase.'; return; }
+  if(!room){ $('setupErr').textContent = 'Escribe el código de sala fijo.'; return; }
+  let cfg;
+  try{
+    const match = raw.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('No se encontró un objeto { } en el texto pegado.');
+    cfg = Function('"use strict"; return (' + match[0] + ');')();
+  }catch(e){
+    $('setupErr').textContent = 'Configuración no válida: ' + e.message;
+    return;
+  }
+  saveSetup({ cfg, room });
+  initFirebaseAndJoin(cfg, room);
+});
+
+$('resetSetupLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  if(isLive) endLive();
+  clearSetup();
+  $('cfgArea').value=''; $('roomInputSetup').value='';
+  $('streamPanel').classList.add('hidden');
+  $('setupPanel').classList.remove('hidden');
+});
+
+$('switchCamBtn').addEventListener('click', () => {
+  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+  startCamera(currentFacing, true);
+});
+
+async function startCamera(facing, isSwitch){
+  const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: true });
+  if(localStream) localStream.getTracks().forEach(t => t.stop());
+  localStream = newStream;
+  const video = $('localVideo');
+  video.srcObject = localStream;
+  video.classList.remove('hidden');
+  $('previewPlaceholder').classList.add('hidden');
+  video.style.transform = facing === 'user' ? 'scaleX(-1)' : 'none';
+  $('switchCamBtn').disabled = false;
+  if(isSwitch && pc){
+    const videoTrack = localStream.getVideoTracks()[0];
+    const audioTrack = localStream.getAudioTracks()[0];
+    const senders = pc.getSenders();
+    const vSender = senders.find(s => s.track && s.track.kind === 'video');
+    const aSender = senders.find(s => s.track && s.track.kind === 'audio');
+    if(vSender && videoTrack) vSender.replaceTrack(videoTrack);
+    if(aSender && audioTrack) aSender.replaceTrack(audioTrack);
+  }
+}
+
+$('goLiveBtn').addEventListener('click', goLive);
+$('endLiveBtn').addEventListener('click', endLive);
+window.addEventListener('beforeunload', () => { if(isLive) endLive(); });
+
+async function goLive(){
+  $('streamErr').textContent = '';
+  $('goLiveBtn').disabled = true;
+  $('statusMsg').textContent = 'Comprobando la sala…';
+  try{
+    const snap = await roomRef.get();
+    if(!snap.exists()){
+      $('streamErr').textContent = 'No se encuentra la sala del bingo. Comprueba que la pantalla principal esté abierta en el ordenador.';
+      $('goLiveBtn').disabled = false;
+      $('statusMsg').textContent = '';
+      return;
+    }
+  }catch(e){
+    $('streamErr').textContent = 'Error de conexión: ' + e.message;
+    $('goLiveBtn').disabled = false;
+    $('statusMsg').textContent = '';
+    return;
+  }
+
+  if(!localStream){
+    $('statusMsg').textContent = 'Encendiendo cámara…';
+    try{
+      await startCamera(currentFacing);
+    }catch(e){
+      $('streamErr').textContent = 'No se pudo acceder a la cámara/micrófono: ' + e.message;
+      $('goLiveBtn').disabled = false;
+      $('statusMsg').textContent = '';
+      return;
+    }
+  }
+
+  $('statusMsg').textContent = 'Conectando con la pantalla principal…';
+  await roomRef.child('stream').remove();
+
+  pc = new RTCPeerConnection(RTC_CONFIG);
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  pc.onicecandidate = (ev) => {
+    if(ev.candidate) roomRef.child('stream/broadcasterCandidates').push(ev.candidate.toJSON());
+  };
+  pc.onconnectionstatechange = () => {
+    if(pc && pc.connectionState === 'connected'){
+      $('statusMsg').textContent = '✅ En directo — se te ve y se te oye en la pantalla principal.';
+    } else if(pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')){
+      $('statusMsg').textContent = '⚠️ Se perdió la conexión con la pantalla principal.';
+    }
+  };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await roomRef.child('stream').set({ offer: { type: offer.type, sdp: offer.sdp }, ts: Date.now() });
+  roomRef.child('stream').onDisconnect().remove();
+
+  roomRef.child('stream/answer').on('value', async snap => {
+    const answer = snap.val();
+    if(answer && pc && !pc.currentRemoteDescription){
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    }
+  });
+  roomRef.child('stream/viewerCandidates').on('child_added', s => {
+    const c = s.val();
+    if(c && pc) pc.addIceCandidate(new RTCIceCandidate(c)).catch(()=>{});
+  });
+
+  isLive = true;
+  $('liveBadge').classList.remove('hidden');
+  $('liveBadge').classList.add('on');
+  $('goLiveBtn').classList.add('hidden');
+  $('endLiveBtn').classList.remove('hidden');
+}
+
+function endLive(){
+  isLive = false;
+  if(roomRef){
+    roomRef.child('stream/answer').off();
+    roomRef.child('stream/viewerCandidates').off();
+    roomRef.child('stream').onDisconnect().cancel();
+    roomRef.child('stream').remove();
+  }
+  if(pc){ pc.close(); pc = null; }
+  if(localStream){ localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+
+  $('localVideo').classList.add('hidden');
+  $('localVideo').srcObject = null;
+  $('previewPlaceholder').classList.remove('hidden');
+  $('liveBadge').classList.add('hidden');
+  $('liveBadge').classList.remove('on');
+  $('goLiveBtn').classList.remove('hidden');
+  $('goLiveBtn').disabled = false;
+  $('endLiveBtn').classList.add('hidden');
+  $('switchCamBtn').disabled = true;
+  $('statusMsg').textContent = 'Transmisión finalizada.';
+}
+</script>
+</body>
+</html>

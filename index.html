@@ -95,9 +95,27 @@ header p{margin-top:14px;font-weight:700;opacity:.75;font-size:.95rem}
 .card.clasico .tag{color:#fdeecb}
 
 footer{margin-top:46px;opacity:.4;font-size:.75rem;font-weight:700;text-align:center}
+
+#liveBtn{
+  position:fixed;top:16px;right:16px;z-index:90;
+  display:inline-flex;align-items:center;gap:7px;
+  background:rgba(0,0,0,.35);border:2px solid rgba(255,82,82,.55);
+  color:var(--crema);text-decoration:none;font-weight:800;font-size:.78rem;
+  padding:9px 15px;border-radius:30px;backdrop-filter:blur(3px);
+  transition:transform .15s, box-shadow .15s;
+}
+#liveBtn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(255,82,82,.3)}
+#liveBtn .dot{width:9px;height:9px;border-radius:50%;background:#FF5252;box-shadow:0 0 8px #FF5252}
+@keyframes dotPulse{0%,100%{opacity:1}50%{opacity:.35}}
+#liveBtn .dot{animation:dotPulse 1.4s infinite}
+@media(max-width:480px){#liveBtn span.label{display:none}}
 </style>
 </head>
 <body>
+
+<a id="liveBtn" href="en-directo.html" title="Retransmitir en directo">
+  <span class="dot"></span><span class="label">Retransmitir</span>
+</a>
 
 <header>
   <div class="eyebrow">Noche de bingo</div>
