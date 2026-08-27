@@ -269,6 +269,15 @@ async function goLive(){
   }
 
   $('statusMsg').textContent = 'Conectando con la pantalla principal…';
+
+  // Limpieza defensiva: por si quedó algo enganchado de un intento anterior
+  // que no se cerró bien (red cortada, pantalla bloqueada, cierre brusco, etc.)
+  if(roomRef){
+    roomRef.child('stream/answer').off();
+    roomRef.child('stream/viewerCandidates').off();
+    roomRef.child('stream').onDisconnect().cancel();
+  }
+  if(pc){ pc.close(); pc = null; }
   await roomRef.child('stream').remove();
 
   pc = new RTCPeerConnection(RTC_CONFIG);
@@ -278,10 +287,15 @@ async function goLive(){
     if(ev.candidate) roomRef.child('stream/broadcasterCandidates').push(ev.candidate.toJSON());
   };
   pc.onconnectionstatechange = () => {
-    if(pc && pc.connectionState === 'connected'){
+    if(!pc) return;
+    if(pc.connectionState === 'connected'){
       $('statusMsg').textContent = '✅ En directo — se te ve y se te oye en la pantalla principal.';
-    } else if(pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')){
-      $('statusMsg').textContent = '⚠️ Se perdió la conexión con la pantalla principal.';
+    } else if(pc.connectionState === 'failed'){
+      // en vez de quedarse colgado, reintenta solo tras un fallo claro de conexión
+      $('statusMsg').textContent = '⚠️ Se perdió la conexión. Reintentando…';
+      if(isLive) setTimeout(() => { if(isLive) goLive(); }, 1500);
+    } else if(pc.connectionState === 'disconnected'){
+      $('statusMsg').textContent = '⚠️ Conexión inestable, esperando…';
     }
   };
 
