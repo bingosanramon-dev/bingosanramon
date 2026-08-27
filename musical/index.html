@@ -623,8 +623,9 @@ function loadStoredConfig(){
 }
 function saveStoredConfig(cfg){ localStorage.setItem('bingoMusicalFirebaseConfig', JSON.stringify(cfg)); }
 
+const DEFAULT_FIXED_ROOM_CODE = 'SANRAMON';
 function loadFixedRoomCode(){
-  return (localStorage.getItem('bingoMusicalFixedRoomCode') || '').trim().toUpperCase() || null;
+  return (localStorage.getItem('bingoMusicalFixedRoomCode') || '').trim().toUpperCase() || DEFAULT_FIXED_ROOM_CODE;
 }
 function saveFixedRoomCode(code){ localStorage.setItem('bingoMusicalFixedRoomCode', code); }
 function clearFixedRoomCode(){ localStorage.removeItem('bingoMusicalFixedRoomCode'); }
