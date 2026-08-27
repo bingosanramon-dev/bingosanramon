@@ -620,10 +620,11 @@ const DEFAULT_FIREBASE_CONFIG = {
 const DEFAULT_FIXED_ROOM_CODE = 'SANRAMON';
 let fbApp = null, fbDb = null, roomCode = null, roomRef = null;
 const RTC_CONFIG = { iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  { urls: 'turn:global.relay.metered.ca:80', username: '851d1d63bc05704465482244', credential: 'IaqOSbUAjsu4VIzw' },
+  { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '851d1d63bc05704465482244', credential: 'IaqOSbUAjsu4VIzw' },
+  { urls: 'turn:global.relay.metered.ca:443', username: '851d1d63bc05704465482244', credential: 'IaqOSbUAjsu4VIzw' },
+  { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '851d1d63bc05704465482244', credential: 'IaqOSbUAjsu4VIzw' }
 ] };
 let streamPc = null;
 let currentOfferSdp = null;
@@ -780,6 +781,7 @@ async function handleIncomingOffer(offer){
   streamPc = new RTCPeerConnection(RTC_CONFIG);
 
   streamPc.ontrack = (ev) => {
+    console.log('[bingo-viewer] ontrack recibido:', ev.track.kind, ev.streams[0] ? ev.streams[0].getTracks().map(t=>t.kind) : 'sin stream');
     $('streamVideo').srcObject = ev.streams[0];
     $('streamVideo').style.display = 'block';
     $('streamBadge').classList.remove('hidden');
@@ -789,6 +791,9 @@ async function handleIncomingOffer(offer){
   };
   streamPc.onicecandidate = (ev) => {
     if(ev.candidate) roomRef.child('stream/viewerCandidates').push(ev.candidate.toJSON());
+  };
+  streamPc.onconnectionstatechange = () => {
+    console.log('[bingo-viewer] connectionState:', streamPc && streamPc.connectionState);
   };
 
   // limpiamos restos de una sesión anterior antes de contestar
