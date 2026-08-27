@@ -122,10 +122,11 @@ input[type=text]{text-align:center;letter-spacing:2px;font-size:1rem}
 <script>
 const $ = id => document.getElementById(id);
 const RTC_CONFIG = { iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  { urls: 'turn:global.relay.metered.ca:80', username: '851d1d63bc05704465482244', credential: 'IaqOSbUAjsu4VIzw' },
+  { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '851d1d63bc05704465482244', credential: 'IaqOSbUAjsu4VIzw' },
+  { urls: 'turn:global.relay.metered.ca:443', username: '851d1d63bc05704465482244', credential: 'IaqOSbUAjsu4VIzw' },
+  { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '851d1d63bc05704465482244', credential: 'IaqOSbUAjsu4VIzw' }
 ] };
 const STORE_KEY = 'bingoDirectoConfig';
 
@@ -288,8 +289,19 @@ async function goLive(){
   };
   pc.onconnectionstatechange = () => {
     if(!pc) return;
+    console.log('[bingo-directo] connectionState:', pc.connectionState);
     if(pc.connectionState === 'connected'){
       $('statusMsg').textContent = '✅ En directo — se te ve y se te oye en la pantalla principal.';
+      pc.getStats(null).then(stats => {
+        stats.forEach(r => {
+          if(r.type === 'candidate-pair' && r.state === 'succeeded'){
+            console.log('[bingo-directo] par ICE en uso ->', 'local:', r.localCandidateId, 'remoto:', r.remoteCandidateId);
+          }
+          if(r.type === 'local-candidate' || r.type === 'remote-candidate'){
+            console.log('[bingo-directo]', r.type, r.id, '- tipo:', r.candidateType, '- protocolo:', r.protocol);
+          }
+        });
+      });
     } else if(pc.connectionState === 'failed'){
       // en vez de quedarse colgado, reintenta solo tras un fallo claro de conexión
       $('statusMsg').textContent = '⚠️ Se perdió la conexión. Reintentando…';
