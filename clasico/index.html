@@ -606,6 +606,18 @@ function launchConfetti(){
    El móvil (presentar.html) actúa de emisor por WebRTC; esta pantalla es el único
    receptor. Firebase solo se usa para la "señalización" (poner en contacto a los dos
    navegadores) — el vídeo y el audio viajan directamente entre ambos dispositivos. */
+// Configuración de tu proyecto Firebase (ya viene rellena, no hace falta pegarla a mano)
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB142yrJef_6LfEIFi3DaiMcvij4PFYECk",
+  authDomain: "bingo-musical-61e51.firebaseapp.com",
+  databaseURL: "https://bingo-musical-61e51-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "bingo-musical-61e51",
+  storageBucket: "bingo-musical-61e51.firebasestorage.app",
+  messagingSenderId: "749137475237",
+  appId: "1:749137475237:web:32dd9bb76ade5faf0e3f4c",
+  measurementId: "G-JZWRQK27XP"
+};
+const DEFAULT_FIXED_ROOM_CODE = 'SANRAMON';
 let fbApp = null, fbDb = null, roomCode = null, roomRef = null;
 const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 let streamPc = null;
@@ -618,7 +630,7 @@ function loadStoredConfig(){
 function saveStoredConfig(cfg){ localStorage.setItem('bingoClubFirebaseConfig', JSON.stringify(cfg)); }
 
 function loadFixedRoomCode(){
-  return (localStorage.getItem('bingoClubFixedRoomCode') || '').trim().toUpperCase() || null;
+  return (localStorage.getItem('bingoClubFixedRoomCode') || '').trim().toUpperCase() || DEFAULT_FIXED_ROOM_CODE;
 }
 function saveFixedRoomCode(code){ localStorage.setItem('bingoClubFixedRoomCode', code); }
 function clearFixedRoomCode(){ localStorage.removeItem('bingoClubFixedRoomCode'); }
@@ -818,9 +830,13 @@ $('stopStreamBtn').addEventListener('click', () => {
   teardownStream();
 });
 
+/* --- arrancar con la configuración guardada, o con la de fábrica si es la primera vez --- */
 (function bootStream(){
-  const stored = loadStoredConfig();
-  if(stored) initFirebase(stored);
+  const cfg = loadStoredConfig() || DEFAULT_FIREBASE_CONFIG;
+  if(!loadStoredConfig()) saveStoredConfig(cfg);
+  const cfgAreaEl = $('cfgArea');
+  if(cfgAreaEl) cfgAreaEl.value = JSON.stringify(cfg, null, 2);
+  initFirebase(cfg);
 })();
 
 initGame();
