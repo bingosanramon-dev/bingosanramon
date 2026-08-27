@@ -121,7 +121,12 @@ input[type=text]{text-align:center;letter-spacing:2px;font-size:1rem}
 
 <script>
 const $ = id => document.getElementById(id);
-const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+const RTC_CONFIG = { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+] };
 const STORE_KEY = 'bingoDirectoConfig';
 
 // Configuración de tu proyecto Firebase y sala fija (ya vienen rellenas, no hace falta tocar nada)
