@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bingo · Club Deportivo Social Cultural San Ramón</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <style>
 :root{
   --verde-950:#042315;
@@ -137,6 +139,47 @@ header .sub{
 }
 #ballIdle{font-family:'Bungee',cursive;font-size:1rem;color:rgba(255,248,234,.6);text-align:center;padding:0 24px;line-height:1.6;letter-spacing:1px}
 #ballCount{font-weight:800;letter-spacing:2px;opacity:.85;font-size:.85rem;text-transform:uppercase;color:var(--dorado-claro)}
+.hidden{display:none!important}
+
+/* Vídeo de la transmisión en directo, superpuesto sobre la bola central */
+#streamVideo{
+  display:none;position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;border-radius:50%;z-index:8;
+  transform:scaleX(-1); /* efecto espejo, más natural para una cámara frontal */
+}
+#streamBadge{
+  position:absolute;top:8%;left:50%;transform:translateX(-50%);
+  background:var(--mal);color:#fff;font-family:'Bungee',cursive;
+  font-size:.7rem;letter-spacing:1px;padding:5px 12px;border-radius:20px;
+  z-index:9;box-shadow:0 3px 10px rgba(0,0,0,.4);
+  animation:streamPulse 1.2s infinite;
+}
+@keyframes streamPulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Panel de configuración de la transmisión */
+#streamCfgSection textarea{
+  width:100%;min-height:80px;padding:10px;border-radius:10px;
+  border:2px solid rgba(232,178,59,.4);background:#08301f;color:var(--crema);
+  font-family:'Nunito',sans-serif;font-size:.8rem;resize:vertical;margin-bottom:10px;
+}
+#onlineStatus{font-weight:800;font-size:.82rem;margin:8px 0;opacity:.85}
+#onlineStatus.ok{color:var(--ok)}
+#onlineStatus.bad{color:var(--mal)}
+#roomCodeBig{font-family:'Bungee',cursive;font-size:1.6rem;color:var(--dorado-claro);letter-spacing:3px;margin:6px 0}
+#streamLinkInput{
+  width:100%;padding:12px;border-radius:10px;border:2px solid rgba(232,178,59,.4);
+  background:#08301f;color:var(--crema);font-size:.78rem;text-align:center;margin:10px 0;
+}
+#fixedCodeInput{
+  padding:10px;border-radius:10px;border:2px solid rgba(232,178,59,.4);
+  background:#08301f;color:var(--crema);font-weight:800;letter-spacing:1px;
+  text-align:center;max-width:220px;font-family:'Nunito',sans-serif;
+}
+#streamLiveBar{
+  margin-top:12px;padding:10px 14px;border-radius:12px;
+  background:rgba(255,82,82,.12);border:2px solid var(--mal);
+  font-weight:800;font-size:.85rem;text-align:center;
+}
 
 #history{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:38px}
 #history .h{
@@ -226,6 +269,8 @@ header .sub{
         <div id="ball">
           <div id="ballIdle">Pulsa<br>SACAR BOLA<br>para empezar</div>
           <div id="ballNumber" style="display:none"></div>
+          <video id="streamVideo" autoplay playsinline></video>
+          <div id="streamBadge" class="hidden">🔴 EN DIRECTO</div>
         </div>
       </div>
       <div id="ballCount"></div>
@@ -234,6 +279,7 @@ header .sub{
         <button class="btn verde" id="lineaBtn">📣 ¡Línea!</button>
         <button class="btn verde" id="bingoBtn">🏆 ¡Bingo!</button>
         <button class="btn mini roja" id="resetBtn">↺ Reiniciar</button>
+        <button class="btn mini verde" id="streamMenuBtn">🎥 Transmisión en directo</button>
       </div>
       <div id="voiceRow">
         <label class="toggle">
@@ -281,6 +327,54 @@ header .sub{
     <div class="row">
       <button class="btn" id="celebBtn">🎱 Continuar sorteo</button>
     </div>
+  </div>
+</div>
+
+<!-- Configuración y sala de la transmisión en directo -->
+<div class="overlay" id="streamOverlay">
+  <div class="modal" style="max-width:520px">
+    <h2 style="color:var(--dorado)">🎥 TRANSMISIÓN EN DIRECTO</h2>
+    <div id="streamCfgSection">
+      <p style="font-size:.88rem">Para poder aparecer en directo en la bola central desde tu móvil, conecta este bingo a una base de datos <b>Firebase</b> gratuita (solo hace falta una vez).</p>
+      <textarea id="cfgArea" placeholder='Pega aquí el objeto de configuración de tu proyecto Firebase, ej: { "apiKey": "...", "databaseURL": "https://xxx.firebaseio.com", "projectId": "..." }'></textarea>
+      <button class="btn mini" id="cfgSaveBtn">💾 Guardar configuración</button>
+      <div id="onlineStatus">Sin configurar todavía</div>
+    </div>
+    <div id="streamRoomSection" style="display:none">
+      <p class="hint" style="font-weight:800;font-size:.85rem;opacity:.8;margin-top:10px">Código de sala:</p>
+      <div id="roomCodeBig">----</div>
+      <button class="btn verde mini" id="showStreamLinkBtn">🔗 Enlace para transmitir</button>
+      <div id="streamLiveBar" class="hidden">
+        🔴 Transmisión en directo activa
+        <div><button class="btn mini roja" id="stopStreamBtn" style="margin-top:8px">⏹ Cortar transmisión</button></div>
+      </div>
+      <div id="fixedCodeBlock" style="margin-top:16px;padding-top:14px;border-top:1px dashed rgba(232,178,59,.35)">
+        <p style="font-size:.78rem;opacity:.8;margin-bottom:8px">🔒 Código de sala fijo (opcional): si vas a transmitir desde fuera del recinto, fija un código para que tu enlace nunca cambie.</p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <input type="text" id="fixedCodeInput" placeholder="Ej: SANRAMON" maxlength="20">
+          <button class="btn mini" id="fixedCodeSaveBtn">💾 Fijar</button>
+          <button class="btn mini roja" id="fixedCodeClearBtn">✖ Quitar</button>
+        </div>
+        <div id="fixedCodeStatus" style="font-size:.76rem;opacity:.8;margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn roja" id="streamOverlayClose">✖ Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Enlace para transmitir desde el móvil -->
+<div class="overlay" id="streamLinkOverlay">
+  <div class="modal" style="max-width:500px">
+    <h2 style="color:var(--ok);text-shadow:none">🔗 ENLACE PARA TRANSMITIR</h2>
+    <p style="font-size:.9rem">Copia este enlace y ábrelo <b>desde el móvil con el que vas a transmitir</b> (mándatelo por WhatsApp, nota o email si no vas a estar delante del ordenador). Se abrirá tu cámara: pulsa "Salir en directo" y tu imagen y audio aparecerán en la bola central. Pulsa "Finalizar" cuando termines.</p>
+    <input type="text" id="streamLinkInput" readonly>
+    <div class="row" style="margin-top:6px;gap:10px">
+      <button class="btn verde" id="copyStreamLinkBtn">📋 Copiar enlace</button>
+      <button class="btn roja" id="streamLinkClose">✖ Cerrar</button>
+    </div>
+    <p style="font-size:.8rem;opacity:.75;margin-top:12px" id="streamLinkWarning"></p>
   </div>
 </div>
 
@@ -507,6 +601,227 @@ function launchConfetti(){
     setTimeout(()=>c.remove(), fall);
   }
 }
+
+/* ================= TRANSMISIÓN EN DIRECTO (móvil → bola central) =================
+   El móvil (presentar.html) actúa de emisor por WebRTC; esta pantalla es el único
+   receptor. Firebase solo se usa para la "señalización" (poner en contacto a los dos
+   navegadores) — el vídeo y el audio viajan directamente entre ambos dispositivos. */
+let fbApp = null, fbDb = null, roomCode = null, roomRef = null;
+const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+let streamPc = null;
+let currentOfferSdp = null;
+
+function loadStoredConfig(){
+  try{ return JSON.parse(localStorage.getItem('bingoClubFirebaseConfig')||'null'); }
+  catch(e){ return null; }
+}
+function saveStoredConfig(cfg){ localStorage.setItem('bingoClubFirebaseConfig', JSON.stringify(cfg)); }
+
+function loadFixedRoomCode(){
+  return (localStorage.getItem('bingoClubFixedRoomCode') || '').trim().toUpperCase() || null;
+}
+function saveFixedRoomCode(code){ localStorage.setItem('bingoClubFixedRoomCode', code); }
+function clearFixedRoomCode(){ localStorage.removeItem('bingoClubFixedRoomCode'); }
+
+function refreshFixedCodeUI(){
+  const fixed = loadFixedRoomCode();
+  const status = $('fixedCodeStatus');
+  if(fixed){
+    $('fixedCodeInput').value = fixed;
+    status.textContent = `✅ Código fijo activo: ${fixed}. Tu enlace de transmisión será siempre el mismo mientras no lo quites.`;
+  } else {
+    status.textContent = 'Sin código fijo: la sala usará un código aleatorio distinto cada vez que se recargue esta página.';
+  }
+}
+
+function setOnlineStatus(txt, cls){
+  const el = $('onlineStatus');
+  el.textContent = txt;
+  el.className = cls || '';
+}
+
+function parseConfigInput(raw){
+  // Acepta tanto el objeto pegado tal cual, como con "const firebaseConfig = ...;" alrededor
+  const match = raw.match(/\{[\s\S]*\}/);
+  if(!match) throw new Error('No se encontró un objeto { } en el texto pegado.');
+  // eslint-disable-next-line no-new-func
+  return Function('"use strict"; return (' + match[0] + ');')();
+}
+
+function makeRoomCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for(let i=0;i<4;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+function createRoom(){
+  if(!fbDb) return;
+  roomCode = loadFixedRoomCode() || makeRoomCode();
+  roomRef = fbDb.ref('rooms/' + roomCode);
+  $('roomCodeBig').textContent = roomCode;
+  roomRef.set({ createdAt: Date.now() });
+  listenStream();
+}
+
+function initFirebase(cfg){
+  try{
+    if(fbApp){ fbApp.delete().catch(()=>{}); }
+    fbApp = firebase.initializeApp(cfg, 'bingoClub_' + Date.now());
+    fbDb = fbApp.database();
+    setOnlineStatus('✅ Conectado a Firebase.', 'ok');
+    $('streamRoomSection').style.display = 'block';
+    refreshFixedCodeUI();
+    if(!roomCode) createRoom();
+  }catch(e){
+    console.error(e);
+    setOnlineStatus('✘ No se pudo conectar: ' + e.message, 'bad');
+  }
+}
+
+$('cfgSaveBtn').addEventListener('click', () => {
+  const raw = $('cfgArea').value.trim();
+  if(!raw){ setOnlineStatus('✘ Pega primero la configuración de tu proyecto Firebase.', 'bad'); return; }
+  try{
+    const cfg = parseConfigInput(raw);
+    saveStoredConfig(cfg);
+    initFirebase(cfg);
+  }catch(e){
+    setOnlineStatus('✘ Configuración no válida: ' + e.message, 'bad');
+  }
+});
+
+$('fixedCodeSaveBtn').addEventListener('click', () => {
+  const raw = $('fixedCodeInput').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!raw){ $('fixedCodeStatus').textContent = '✘ Escribe un código (solo letras y números).'; return; }
+  saveFixedRoomCode(raw);
+  refreshFixedCodeUI();
+  $('fixedCodeStatus').textContent += ' Vuelve a cargar la página para aplicarlo.';
+});
+$('fixedCodeClearBtn').addEventListener('click', () => {
+  clearFixedRoomCode();
+  $('fixedCodeInput').value = '';
+  refreshFixedCodeUI();
+});
+
+/* ---- Menú / overlays ---- */
+$('streamMenuBtn').addEventListener('click', () => {
+  const stored = loadStoredConfig();
+  if(stored && !fbApp) initFirebase(stored);
+  $('streamOverlay').classList.add('show');
+});
+$('streamOverlayClose').addEventListener('click', ()=> $('streamOverlay').classList.remove('show'));
+
+function buildPresenterUrl(){
+  const cfg = loadStoredConfig();
+  const base = location.href.replace(/index\.html?(\?.*)?(#.*)?$/,'').replace(/\/?$/,'/');
+  const cfgParam = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(cfg)))));
+  return base + 'presentar.html?room=' + roomCode + '&cfg=' + cfgParam;
+}
+
+$('showStreamLinkBtn').addEventListener('click', () => {
+  if(!roomCode){ setOnlineStatus('✘ Configura Firebase primero para crear una sala.', 'bad'); return; }
+  $('streamLinkInput').value = buildPresenterUrl();
+  $('copyStreamLinkBtn').textContent = '📋 Copiar enlace';
+  $('streamLinkWarning').textContent = loadFixedRoomCode()
+    ? '✅ Tienes un código fijo activo: este enlace no cambiará. Puedes guardarlo o mandártelo con antelación, y funcionará en cuanto abras esta página ese día.'
+    : '⚠️ Este enlace solo funciona mientras esta sala siga abierta con este código. Si recargas la página sin un código fijo, cambiará y tendrás que copiarlo de nuevo. Si quieres un enlace permanente, fija un código de sala más abajo.';
+  $('streamLinkOverlay').classList.add('show');
+});
+$('streamLinkClose').addEventListener('click', ()=> $('streamLinkOverlay').classList.remove('show'));
+
+$('copyStreamLinkBtn').addEventListener('click', async () => {
+  const input = $('streamLinkInput');
+  try{
+    await navigator.clipboard.writeText(input.value);
+  }catch(e){
+    input.select();
+    input.setSelectionRange(0, 99999);
+    try{ document.execCommand('copy'); }catch(e2){}
+  }
+  $('copyStreamLinkBtn').textContent = '✅ ¡Copiado!';
+  setTimeout(()=>{ $('copyStreamLinkBtn').textContent = '📋 Copiar enlace'; }, 2000);
+});
+
+/* ---- Recepción del vídeo (WebRTC) ---- */
+function listenStream(){
+  if(!roomRef) return;
+  roomRef.child('stream/offer').on('value', snap => {
+    const offer = snap.val();
+    if(offer && offer.sdp !== currentOfferSdp){
+      currentOfferSdp = offer.sdp;
+      handleIncomingOffer(offer);
+    } else if(!offer){
+      currentOfferSdp = null;
+      teardownStream();
+    }
+  });
+}
+
+async function handleIncomingOffer(offer){
+  teardownPeerOnly(); // por si quedaba una conexión anterior a medias
+  streamPc = new RTCPeerConnection(RTC_CONFIG);
+
+  streamPc.ontrack = (ev) => {
+    $('streamVideo').srcObject = ev.streams[0];
+    $('streamVideo').style.display = 'block';
+    $('streamBadge').classList.remove('hidden');
+    $('streamLiveBar').classList.remove('hidden');
+    $('ballIdle').style.display = 'none';
+    $('ballNumber').style.display = 'none';
+  };
+  streamPc.onicecandidate = (ev) => {
+    if(ev.candidate) roomRef.child('stream/viewerCandidates').push(ev.candidate.toJSON());
+  };
+
+  // limpiamos restos de una sesión anterior antes de contestar
+  await roomRef.child('stream/answer').remove();
+  await roomRef.child('stream/viewerCandidates').remove();
+
+  await streamPc.setRemoteDescription(new RTCSessionDescription(offer));
+  roomRef.child('stream/broadcasterCandidates').on('child_added', s => {
+    const c = s.val();
+    if(c && streamPc) streamPc.addIceCandidate(new RTCIceCandidate(c)).catch(()=>{});
+  });
+  const answer = await streamPc.createAnswer();
+  await streamPc.setLocalDescription(answer);
+  roomRef.child('stream/answer').set({ type: answer.type, sdp: answer.sdp });
+}
+
+function teardownPeerOnly(){
+  if(streamPc){ streamPc.close(); streamPc = null; }
+  if(roomRef) roomRef.child('stream/broadcasterCandidates').off();
+}
+
+function restoreBallDisplay(){
+  if(current === null){
+    $('ballIdle').style.display = 'block';
+    $('ballNumber').style.display = 'none';
+  } else {
+    $('ballIdle').style.display = 'none';
+    $('ballNumber').style.display = 'flex';
+  }
+}
+
+function teardownStream(){
+  teardownPeerOnly();
+  $('streamVideo').srcObject = null;
+  $('streamVideo').style.display = 'none';
+  $('streamBadge').classList.add('hidden');
+  $('streamLiveBar').classList.add('hidden');
+  restoreBallDisplay();
+}
+
+$('stopStreamBtn').addEventListener('click', () => {
+  // corta la transmisión también desde el ordenador, por si el móvil se queda sin red
+  if(roomRef) roomRef.child('stream').remove();
+  teardownStream();
+});
+
+(function bootStream(){
+  const stored = loadStoredConfig();
+  if(stored) initFirebase(stored);
+})();
 
 initGame();
 </script>
